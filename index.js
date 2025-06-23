@@ -119,6 +119,17 @@ app.get('/app_unit', (req, res) => {
   });
 });
 
+app.get('/app_result', (req, res) => {
+  const sql = 'SELECT * FROM tb_result';
+  conn.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching results:', err);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    res.json(results);
+  });
+});
+
 app.get('/app_getmaintypes/:id', (req, res) => {
   const id = req.params.id;
   console.log("Fetching image price for ID:", id);
