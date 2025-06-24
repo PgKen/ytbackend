@@ -2,9 +2,11 @@ const express = require('express');
 const app = express();
 const mysql = require('mysql2');
 const moment = require('moment'); // ใช้ moment.js สำหรับจัดการวันที่
-
 const cors = require('cors');
 const { log } = require('node:console');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer'); // เพิ่ม multer สำหรับรับไฟล์อัปโหลด
 
 app.use(cors());
 
@@ -236,9 +238,68 @@ app.post('/app_saveprice', (req, res) => {
     }
     res.json({ success: true, message: "Prices saved successfully", inserted: result.affectedRows });
   });
-
 });
 
+// ตั้งค่า multer สำหรับเก็บไฟล์ใน /public/upload
+
+
+const uploadDir = path.join(__dirname, 'public', 'upload');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer.diskStorage({
+  destination: function (_req, _file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (_req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  }
+});
+const upload = multer({ storage: storage });
+
+app.post('/app_uploadimg', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file uploaded' });
+  }
+  // สร้างชื่อไฟล์ใหม่โดยเติมวันที่และเวลา
+  const originalName = req.file.originalname;
+  const ext = path.extname(originalName);
+  const baseName = path.basename(originalName, ext);
+  const now = moment().format('YYYYMMDD_HHmmss');
+  const uniqueSuffix = now + '-' + Math.round(Math.random() * 1E9);
+  const newFilename = `${baseName}_${uniqueSuffix}${ext}`;
+  const oldPath = req.file.path;
+  const newPath = path.join(req.file.destination, newFilename);
+  // เปลี่ยนชื่อไฟล์จริงในโฟลเดอร์
+  fs.renameSync(oldPath, newPath);
+
+  // Insert new filename into tb_img
+  const sql = 'INSERT INTO tb_img (name_img) VALUES (?)';
+  conn.query(sql, [newFilename], (err, result) => {
+    if (err) {
+      console.error('Error saving image filename:', err);
+      return res.status(500).json({ success: false, message: 'Database error (insert image)'});
+    }
+    res.json({ success: true, message: 'File uploaded and saved to DB', filename: newFilename, path: `/public/upload/${newFilename}` });
+  });
+});
+
+
+app.get('/app_listimg', (req, res) => {
+  const sql = 'SELECT * FROM tb_img ORDER BY id DESC';
+  conn.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching images:', err);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    res.json(results);
+  });
+});
+
+// ให้ Express ให้บริการไฟล์ใน /public/upload ผ่าน /upload
+app.use('/upload', express.static(path.join(__dirname, 'public', 'upload')));
 
 const port = 4222;
 app.listen(port, () => {
