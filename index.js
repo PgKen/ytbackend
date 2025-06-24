@@ -137,6 +137,7 @@ app.get('/app_getmaintypes/:id', (req, res) => {
   let sql =  "SELECT * FROM tb_product ";
   sql += "INNER JOIN tb_maintype ON tb_product.id_group = tb_maintype.id ";
   sql += "WHERE tb_maintype.id = ? ";
+  sql += "AND prod_status = 1 ";
 
   conn.query(sql, [id], (err, result) => {
     if (err) {
@@ -151,6 +152,91 @@ app.get('/app_getmaintypes/:id', (req, res) => {
     }
   }
   );
+});
+
+
+app.post('/app_showprice', (req, res) => {
+  // { date: '2025-06-24', id_result: '4', id_maintype: '6' }
+  console.log(req.body);
+
+  const { date, id_result, id_maintype } = req.body;
+
+  let sql = `
+    SELECT 
+      tb_product.id_product,
+      tb_product.*,
+      tb_unit.*,
+      tb_maintype.*,
+      GROUP_CONCAT(tb_price.id_result) AS id_result_array,
+      GROUP_CONCAT(tb_price.price) AS price_array,
+      GROUP_CONCAT(tb_price.price_time) AS price_time_array
+    FROM tb_price
+    INNER JOIN tb_product ON tb_price.id_prod = tb_product.id_product
+    INNER JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+    INNER JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
+    WHERE tb_price.price_date = ?
+      AND tb_maintype.id = ?
+  `;
+
+  let params = [date, id_maintype];
+
+  if (id_result && id_result !== '-1') {
+    sql += " AND tb_price.id_result = ? ";
+    params.push(id_result);
+  }
+
+  sql += " GROUP BY tb_product.id_product ";
+
+  conn.query(sql, params, (err, result) => {
+    if (err) {
+      console.error("Error executing query:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    if (result.length > 0) {
+      console.log("Fetched prices:", result[0]);
+      res.json(result);
+    } else {
+      console.log("No prices found for the given criteria");
+      res.json([]); // Return an empty array if no results found
+    }
+  });
+});
+
+app.post('/app_saveprice', (req, res) => {
+  console.log("Received request to save prices");
+  const filteredPayload = req.body.filteredPayload;
+  // console.log("Filtered payload:", filteredPayload);
+  // res.end();
+  if (!Array.isArray(filteredPayload) || filteredPayload.length === 0) {
+    return res.status(400).json({ success: false, message: "No data to save" });
+  }
+
+  let valTime = moment().format('HH:mm:ss');
+
+  // res.end();
+
+  const sql = `
+    INSERT INTO tb_price (price, price_date, price_time, id_prod, id_result)
+    VALUES ?
+  `;
+
+  // Prepare values for bulk insert
+  const values = filteredPayload.map(item => [
+    item.price,
+    item.date,
+    valTime,
+    item.id_prod,
+    item.id_result,
+  ]);
+
+  conn.query(sql, [values], (err, result) => {
+    if (err) {
+      console.error("Error saving prices:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    res.json({ success: true, message: "Prices saved successfully", inserted: result.affectedRows });
+  });
+
 });
 
 
