@@ -33,14 +33,14 @@ var conn;
 function handleDisconnect() {
   conn = mysql.createConnection(db_config); // Recreate the connection, since
   // the old one cannot be reused.
-  conn.connect(function(err) {
+  conn.connect(function (err) {
     if (err) {
       console.error('Error when connecting to db:', err);
       setTimeout(handleDisconnect, 2000); // Try to reconnect after 2 seconds
     }
-  });       
+  });
 
-  conn.on('error', function(err) {
+  conn.on('error', function (err) {
     console.error('DB error', err);
     if (err.code === 'PROTOCOL_CONNECTION_LOST') {
       handleDisconnect(); // Reconnect if connection is lost
@@ -81,7 +81,7 @@ app.post("/app_login", (req, res) => {
   );
 });
 
-app.get ('/listresult', (req, res) => {
+app.get('/listresult', (req, res) => {
   const sql = 'SELECT * FROM tb_result';
   conn.query(sql, (err, results) => {
     if (err) {
@@ -101,8 +101,8 @@ app.get("/app_maintypes", (req, res) => {
       console.error("Error executing query:", err);
       return res.status(500).json({ success: false, message: "Database error" });
     }
-    console.log("Fetched main types:", result);
-    
+    // console.log("Fetched main types:", result);
+
     res.json(result);
   });
 });
@@ -136,7 +136,7 @@ app.get('/app_getmaintypes/:id', (req, res) => {
   const id = req.params.id;
   console.log("Fetching image price for ID:", id);
 
-  let sql =  "SELECT * FROM tb_product ";
+  let sql = "SELECT * FROM tb_product ";
   sql += "INNER JOIN tb_maintype ON tb_product.id_group = tb_maintype.id ";
   sql += "WHERE tb_maintype.id = ? ";
   sql += "AND prod_status = 1 ";
@@ -280,7 +280,7 @@ app.post('/app_uploadimg', upload.single('image'), (req, res) => {
   conn.query(sql, [newFilename], (err, result) => {
     if (err) {
       console.error('Error saving image filename:', err);
-      return res.status(500).json({ success: false, message: 'Database error (insert image)'});
+      return res.status(500).json({ success: false, message: 'Database error (insert image)' });
     }
     res.json({ success: true, message: 'File uploaded and saved to DB', filename: newFilename, path: `/public/upload/${newFilename}` });
   });
@@ -292,7 +292,9 @@ app.get('/app_listimg', (req, res) => {
   conn.query(sql, (err, results) => {
     if (err) {
       console.error('Error fetching images:', err);
-      return res.status(500).json({ success: false, message: 'Database error' });
+      return res.status(500).json({ 
+        success: false, message: 'Database error' 
+      });
     }
     res.json(results);
   });
@@ -300,6 +302,200 @@ app.get('/app_listimg', (req, res) => {
 
 // ให้ Express ให้บริการไฟล์ใน /public/upload ผ่าน /upload
 app.use('/upload', express.static(path.join(__dirname, 'public', 'upload')));
+
+app.get('/app_listproducts', (req, res) => {
+  console.log("Fetching list of products...");
+  let allProducts = [];
+  // res.end();
+
+  function main() {
+    getAllProducts()
+  }
+  main();
+
+  function getAllProducts() {
+    
+    let dateNow = moment().format('YYYY-MM-DD');
+    const sql = `
+      SELECT 
+        tb_product.id_product,
+        tb_product.name_pro,
+        tb_maintype.name_maintype,
+        tb_unit.unitname,
+        tb_price.price,
+        tb_price.price_date,
+        tb_price.id_result,
+        tb_result.name_result
+      FROM tb_product
+      LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
+      LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+      LEFT JOIN tb_price ON tb_product.id_product = tb_price.id_prod
+      LEFT JOIN tb_result ON tb_price.id_result = tb_result.id
+      WHERE tb_price.price_date = ?
+      ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result
+    `;
+    conn.query(sql, [dateNow], (err, result) => {
+      if (err) {
+        console.error("Error executing query:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+      allProducts = result;
+      // console.table(groupProductsByid_product(allProducts));
+      res.json(groupProductsByid_product(allProducts));
+    });
+  }
+
+  function groupProductsByid_product(products) {
+    // กลุ่มข้อมูลตาม id_product ก่อน
+    const grouped = products.reduce((acc, product) => {
+      if (!acc[product.id_product]) {
+        acc[product.id_product] = [];
+      }
+      acc[product.id_product].push(product);
+      return acc;
+    }, {});
+    // แปลงให้อยู่ในรูปแบบที่ต้องการ (array ของ object)
+    return Object.values(grouped).map(arr => {
+      // arr คือ array ของ product ที่ id_product เดียวกัน
+      const first = arr[0];
+      return {
+        id_product: first.id_product,
+        name_pro: first.name_pro,
+        price: first.price,
+        name_maintype: first.name_maintype, // เพิ่ม name_maintype
+        result: arr.map(item => ({
+          price: item.price,
+          id_result: item.id_result,
+          name_result: item.name_result
+        })),
+        unitname: first.unitname,
+        price_date: first.price_date
+      };
+    });
+  }
+
+  // function formatProductsForDisplay(groupedProducts) {
+  //   return Object.entries(groupedProducts).map(([resultId, products]) => {
+  //     const firstProduct = products[0];
+  //     return {
+  //       id_result: resultId,
+  //       name_result: firstProduct.name_result,
+  //       unitname: firstProduct.unitname,
+  //       price_date: firstProduct.price_date,
+  //       products: products.map(product => ({
+  //         id_product: product.id_product,
+  //         name_pro: product.name_pro,
+  //         price: product.price
+  //       }))
+  //     };
+  //   });
+  // }
+
+})
+
+app.get('/app_listproducts_yeserday', (req, res) => {
+  console.log("Fetching list of products...");
+  let allProducts = [];
+  // res.end();
+
+  function main() {
+    getAllProducts()
+  }
+  main();
+
+  function getAllProducts() {
+    
+    // let dateNow = moment().format('YYYY-MM-DD');
+    let dateYesterDay = req.query.yesterdayStr || moment().subtract(1, 'days').format('YYYY-MM-DD');
+    const sql = `
+      SELECT 
+        tb_product.id_product,
+        tb_product.name_pro,
+        tb_maintype.name_maintype,
+        tb_unit.unitname,
+        tb_price.price,
+        tb_price.price_date,
+        tb_price.id_result,
+        tb_result.name_result
+      FROM tb_product
+      LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
+      LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+      LEFT JOIN tb_price ON tb_product.id_product = tb_price.id_prod
+      LEFT JOIN tb_result ON tb_price.id_result = tb_result.id
+      WHERE tb_price.price_date = ?
+      ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result
+    `;
+    conn.query(sql, [dateYesterDay], (err, result) => {
+      if (err) {
+        console.error("Error executing query:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+      allProducts = result;
+      // console.table(groupProductsByid_product(allProducts));
+      res.json(groupProductsByid_product(allProducts));
+    });
+  }
+
+  function groupProductsByid_product(products) {
+    // กลุ่มข้อมูลตาม id_product ก่อน
+    const grouped = products.reduce((acc, product) => {
+      if (!acc[product.id_product]) {
+        acc[product.id_product] = [];
+      }
+      acc[product.id_product].push(product);
+      return acc;
+    }, {});
+    // แปลงให้อยู่ในรูปแบบที่ต้องการ (array ของ object)
+    return Object.values(grouped).map(arr => {
+      // arr คือ array ของ product ที่ id_product เดียวกัน
+      const first = arr[0];
+      return {
+        id_product: first.id_product,
+        name_pro: first.name_pro,
+        price: first.price,
+        name_maintype: first.name_maintype, // เพิ่ม name_maintype
+        result: arr.map(item => ({
+          price: item.price,
+          id_result: item.id_result,
+          name_result: item.name_result
+        })),
+        unitname: first.unitname,
+        price_date: first.price_date
+      };
+    });
+  }
+
+  // function formatProductsForDisplay(groupedProducts) {
+  //   return Object.entries(groupedProducts).map(([resultId, products]) => {
+  //     const firstProduct = products[0];
+  //     return {
+  //       id_result: resultId,
+  //       name_result: firstProduct.name_result,
+  //       unitname: firstProduct.unitname,
+  //       price_date: firstProduct.price_date,
+  //       products: products.map(product => ({
+  //         id_product: product.id_product,
+  //         name_pro: product.name_pro,
+  //         price: product.price
+  //       }))
+  //     };
+  //   });
+  // }
+
+})
+
+app.get('/app_listprompts', (req, res) => {
+  const sql = 'SELECT * FROM tb_prompt ORDER BY id DESC';
+  conn.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching prompts:', err);
+      return res.status(500).json({ success: false, message: 'Database error' });
+    }
+    res.json(results);
+  });
+});
+
+
 
 const port = 4222;
 app.listen(port, () => {
