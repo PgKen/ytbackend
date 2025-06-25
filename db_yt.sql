@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.1
+-- version 5.0.3
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 25, 2025 at 11:59 AM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.0.30
+-- Generation Time: Jun 25, 2025 at 06:48 PM
+-- Server version: 10.4.14-MariaDB
+-- PHP Version: 7.4.11
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -31,15 +31,25 @@ CREATE TABLE `tb_img` (
   `id` int(11) NOT NULL,
   `name_img` varchar(255) NOT NULL,
   `img_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_img`
 --
 
 INSERT INTO `tb_img` (`id`, `name_img`, `img_status`) VALUES
-(1, '433700_20250625_083213-202343059.jpg', 0),
-(2, 'image_20250625_162552-725407373.png', 0);
+(2, 'image_20250625_162552-725407373.png', 0),
+(3, 'image_20250625_212216-21630125.png', 0),
+(4, 'image (1)_20250625_212223-202055567.png', 0),
+(5, 'image (2)_20250625_212230-875829940.png', 0),
+(6, 'image (3)_20250625_212238-5279175.png', 0),
+(7, 'image (5)_20250625_212248-467031580.png', 0),
+(8, 'image (6)_20250625_212255-434465589.png', 0),
+(9, 'image (7)_20250625_212304-401629813.png', 0),
+(10, 'image (8)_20250625_212311-473181334.png', 0),
+(11, 'image (9)_20250625_212320-179567942.png', 0),
+(12, 'image (10)_20250625_212329-964182817.png', 0),
+(13, 'image (11)_20250625_212337-528746713.png', 0);
 
 -- --------------------------------------------------------
 
@@ -51,7 +61,7 @@ CREATE TABLE `tb_maintype` (
   `id` int(10) NOT NULL,
   `name_maintype` varchar(255) NOT NULL,
   `bud` int(11) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 --
 -- Dumping data for table `tb_maintype`
@@ -81,7 +91,7 @@ CREATE TABLE `tb_price` (
   `price_time` time NOT NULL DEFAULT current_timestamp(),
   `id_prod` int(11) NOT NULL,
   `id_result` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_price`
@@ -129,7 +139,21 @@ INSERT INTO `tb_price` (`id`, `price`, `price_date`, `price_time`, `id_prod`, `i
 (47, 60, '2025-06-25', '15:19:41', 181, 2),
 (48, 60, '2025-06-25', '15:19:41', 196, 2),
 (49, 60, '2025-06-25', '15:20:07', 181, 3),
-(50, 60, '2025-06-25', '15:20:07', 196, 3);
+(50, 60, '2025-06-25', '15:20:07', 196, 3),
+(51, 100, '2025-06-25', '22:12:35', 170, 1),
+(52, 110, '2025-06-25', '22:12:35', 180, 1),
+(53, 120, '2025-06-25', '22:12:35', 181, 1),
+(54, 130, '2025-06-25', '22:12:35', 189, 1),
+(55, 140, '2025-06-25', '22:12:35', 196, 1),
+(56, 121, '2025-06-25', '22:13:19', 170, 3),
+(57, 122, '2025-06-25', '22:13:19', 180, 3),
+(58, 123, '2025-06-25', '22:13:19', 181, 3),
+(59, 124, '2025-06-25', '22:13:19', 189, 3),
+(60, 125, '2025-06-25', '22:13:19', 196, 3),
+(61, 126, '2025-06-25', '22:13:19', 228, 3),
+(62, 127, '2025-06-25', '22:13:19', 229, 3),
+(63, 12, '2025-06-24', '08:33:26', 38, 1),
+(64, 14, '2025-06-24', '08:33:26', 39, 1);
 
 -- --------------------------------------------------------
 
@@ -145,7 +169,7 @@ CREATE TABLE `tb_product` (
   `name_pro_cn` varchar(255) NOT NULL,
   `id_unit` int(11) NOT NULL,
   `prod_status` int(11) NOT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 --
 -- Dumping data for table `tb_product`
@@ -606,7 +630,7 @@ CREATE TABLE `tb_prompt` (
   `title_prompt` varchar(255) NOT NULL,
   `name_prompt` varchar(255) NOT NULL,
   `prompt_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_prompt`
@@ -616,7 +640,12 @@ INSERT INTO `tb_prompt` (`id`, `created_at`, `title_prompt`, `name_prompt`, `pro
 (1, '2025-06-25', 'ประกาศราคา', 'จากข้อมูล \nช่วยนำเสนอ แบบผู้ประกาศข่าว เพื่อแปลงเป็นเสียงพูด เพื่อนำไปลง Youtube\nขอแนวสุภาพ แบบเป็นกันเอง', 1),
 (2, '2025-06-25', 'วิเคราห์ Short', 'จากข้อมูล ช่วยวิเคราะห์ราคา มาซัก 1 รายการ เพื่อให้เกิด ข้อดึงดูด ความน่าสนใจ เพื่อนำไป แปลงเป็นคำพูด เอาไปลง ใน Youtube short ', 1),
 (3, '2025-06-25', 'สร้าง Background', 'ต้องการ Prompt สำหรับ สร้างภาพ background สำหรับนำราคาผัก ไปแปะ เพื่อประกาศอัฟเดทราคาผักวันนี้\r\nขอภาพเกี่ยวกับการเกษตร เป็นภาพสมจริง อาจมี เกษตรผู้หญิงหน้าตาน่ารัก เพื่อช่วยดึงดูด ความสนใจ\r\nขอภาพแนวตั้ง สำหรับ Youtube short', 1),
-(4, '2025-06-25', 'Thai Farmer\'s Harvest.', 'A realistic vertical background scene of Thai agriculture, with a beautiful young Thai female farmer smiling gently in a green vegetable field. She wears a wide straw hat and holds a basket of fresh vegetables (like cabbage, chili, and eggplant). The ligh', 1);
+(4, '2025-06-25', 'Thai Farmer\'s Harvest.', 'A realistic vertical background scene of Thai agriculture, with a beautiful young Thai female farmer smiling gently in a green vegetable field. She wears a wide straw hat and holds a basket of fresh vegetables (like cabbage, chili, and eggplant). The ligh', 1),
+(5, '0000-00-00', 'Side', 'A realistic vertical background scene of Thai agriculture. A beautiful young Thai female farmer is standing to the side of the image (left or right), smiling gently in a lush green vegetable field. She wears a wide straw hat and holds a basket full of fre', 1),
+(6, '0000-00-00', 'Left', 'A realistic vertical background scene of Thai agriculture. A beautiful young Thai female farmer is standing on the left side of the image, smiling gently in a lush green vegetable field. She wears a wide straw hat and holds a basket full of fresh vegetabl', 1),
+(7, '0000-00-00', 'white sleeveless', 'A realistic vertical background scene of Thai agriculture. A beautiful young Thai female farmer is standing on the left side of the image, smiling gently in a lush green vegetable field. She wears a wide straw hat and a white sleeveless top (white tank to', 1),
+(8, '0000-00-00', 'pha thung', 'A realistic vertical background scene of Thai agriculture. A beautiful young Thai female farmer is standing on the left side of the image, smiling gently in a lush green vegetable field. She wears a wide straw hat, a white sleeveless cotton blouse (tradit', 0),
+(9, '2025-06-25', 'เปรียบเทียบ Short', 'จากข้อมูล \r\nช่วยนำเสนอ แบบผู้ประกาศข่าว วิเคราะห์ เปรียบเทียบ ภาพรวม กระชับ  เพื่อแปลงเป็นเสียงพูด เพื่อนำไปลง Youtube Short น้ำเสียงดึงดูด ผู้ดู อยากให้มาติดตามอีก', 1);
 
 -- --------------------------------------------------------
 
@@ -628,7 +657,7 @@ CREATE TABLE `tb_result` (
   `id` int(11) NOT NULL,
   `name_result` varchar(255) NOT NULL,
   `result_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_result`
@@ -650,7 +679,7 @@ CREATE TABLE `tb_unit` (
   `id_unit` int(10) NOT NULL,
   `unitname` varchar(50) NOT NULL,
   `unitname_en` varchar(50) NOT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 --
 -- Dumping data for table `tb_unit`
@@ -683,7 +712,7 @@ CREATE TABLE `tb_user` (
   `username` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
   `user_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_user`
@@ -754,7 +783,7 @@ ALTER TABLE `tb_user`
 -- AUTO_INCREMENT for table `tb_img`
 --
 ALTER TABLE `tb_img`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT for table `tb_maintype`
@@ -766,7 +795,7 @@ ALTER TABLE `tb_maintype`
 -- AUTO_INCREMENT for table `tb_price`
 --
 ALTER TABLE `tb_price`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
 
 --
 -- AUTO_INCREMENT for table `tb_product`
@@ -778,7 +807,7 @@ ALTER TABLE `tb_product`
 -- AUTO_INCREMENT for table `tb_prompt`
 --
 ALTER TABLE `tb_prompt`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `tb_result`
