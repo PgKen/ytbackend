@@ -42,25 +42,70 @@ async function handleDisconnect() {
 handleDisconnect();
 
 function parseLine(line) {
-  // ตัวอย่าง: "ตลาดไท-ผักบุ้งไทย-24-บาท/มัด"
-  // จุดตัดคือ "-"
-  // ["ตลาดไท", "ผักบุ้งไทย", "24", "บาท/มัด"]
-  const parts = line.split("-");
-  if (parts.length < 3) return null;
-  const [market, product, priceStr] = parts;
-  // แยกเฉพาะตัวเลขจาก priceStr
-  const price = parseFloat(priceStr.replace(/[^\d.]/g, ""));
-  return {
-    market: market.trim(),
-    product: product.trim(),
-    price,
-  };
+  // ตัวอย่าง: "ตลาดไท-ผักบุ้งไทย-24-บาท/มัด" หรือ "ตลาดไท ผักบุ้งไทย 24 บาท/มัด" หรือ "ผักชีไทย 25 บาท"
+  // รองรับทั้งแบ่งด้วย - หรือ ช่องว่าง
+  let parts = line.split("-");
+  if (parts.length < 3) {
+    // ถ้าไม่ใช่ - ให้ลอง split ด้วยช่องว่าง (เว้นวรรค)
+    parts = line.trim().split(/\s+/);
+    if (parts.length < 2) return null;
+    let market, product, priceStr;
+    if (parts.length === 3) {
+      // ถ้าอันแรกขึ้นต้นด้วย "ตลาด" ให้ถือว่าเป็น market
+      if (/^ตลาด/.test(parts[0])) {
+        [market, product, priceStr] = parts;
+      } else {
+        // ไม่ใช่ตลาด ให้ default market = ตลาดศรีเมือง
+        [product, priceStr] = [parts[0], parts[1]];
+        market = 'ตลาดศรีเมือง';
+      }
+    } else if (parts.length === 2) {
+      [product, priceStr] = parts;
+      market = 'ตลาดศรีเมือง';
+    } else if (parts.length > 3) {
+      // ถ้ามากกว่า 3 ช่อง ให้เอาตัวแรกเป็น market ถ้าไม่ใช่ตลาด ให้ default เป็นตลาดศรีเมือง
+      if (/^ตลาด/.test(parts[0])) {
+        [market, product, priceStr] = parts;
+      } else {
+        [product, priceStr] = [parts[0], parts[1]];
+        market = 'ตลาดศรีเมือง';
+      }
+    } else {
+      return null;
+    }
+    // เพิ่ม mapping สำรวจ → สำรวจ
+    if (market && (market === 'สำรวจ' || market === 'ตลาดสำรวจ')) {
+      market = 'สำรวจ';
+    }
+    const price = parseFloat(priceStr.replace(/[^\d.]/g, ""));
+    return {
+      market: (market && market.trim()) ? market.trim() : 'ตลาดศรีเมือง',
+      product: product.trim(),
+      price,
+    };
+  } else {
+    // เดิม: แบ่งด้วย -
+    let [market, product, priceStr] = parts;
+    if (!market || market === '' || market === '-') market = 'ตลาดศรีเมือง';
+    // เพิ่ม mapping สำรวจ → สำรวจ
+    if (market && (market === 'สำรวจ' || market === 'ตลาดสำรวจ')) {
+      market = 'สำรวจ';
+    }
+    const price = parseFloat(priceStr.replace(/[^\d.]/g, ""));
+    return {
+      market: (market && market.trim()) ? market.trim() : 'ตลาดศรีเมือง',
+      product: product.trim(),
+      price,
+    };
+  }
 }
 
 app.post('/app_insertdata', async (req, res) => {
   try {
     // รับข้อมูลแบบ text หรือ array ก็ได้
     let { data, price_date, price_time } = req.body;
+    console.log("Received data:", data);
+    
     if (!data) return res.status(400).json({ error: "No data" });
 
     // data อาจเป็น string ยาวหรือ array
@@ -71,6 +116,11 @@ app.post('/app_insertdata', async (req, res) => {
     // ดึงข้อมูลตลาดและสินค้า (map ชื่อเป็น id)
     const [results] = await conn.query('SELECT id, name_result FROM tb_result');
     const [products] = await conn.query('SELECT id_product, name_pro FROM tb_product');
+
+    // console.log("Fetched results:", results
+    //   , "\nFetched products:", products
+    // );
+    
 
     // แปลงเป็น map
     const resultMap = {};
@@ -89,6 +139,8 @@ app.post('/app_insertdata', async (req, res) => {
 
     let inserted = 0;
     let updated = 0;
+    let insertedNames = [];
+    let updatedNames = [];
     for (const line of data) {
       const parsed = parseLine(line);
       if (!parsed) continue;
@@ -108,6 +160,7 @@ app.post('/app_insertdata', async (req, res) => {
           [price, time, today, productMap[product], resultMap[market]]
         );
         updated++;
+        updatedNames.push(product);
       } else {
         // insert
         await conn.query(
@@ -115,10 +168,11 @@ app.post('/app_insertdata', async (req, res) => {
           [price, today, time, productMap[product], resultMap[market]]
         );
         inserted++;
+        insertedNames.push(product);
       }
     }
 
-    res.json({ status: 'ok', inserted, updated });
+    res.json({ status: 'ok', inserted, updated, insertedNames, updatedNames });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });
@@ -176,7 +230,7 @@ app.get('/app_unit', async (req, res) => {
     console.log("Fetching list of units...");
     const sql = "SELECT * FROM tb_unit";
     const [result] = await conn.query(sql);
-    console.log("Fetched units:", result);
+    // console.log("Fetched units:", result);
     res.json(result);
   } catch (err) {
     console.error("Error executing query:", err);
@@ -232,46 +286,62 @@ app.get('/app_getmaintypes/:id/:id_result', async (req, res) => {
 
 app.post('/app_showprice', async (req, res) => {
   // { date: '2025-06-24', id_result: '4', id_maintype: '6' }
-  console.log(req.body);
-
   const { date, id_result, id_maintype } = req.body;
 
   let sql = `
     SELECT 
       tb_product.id_product,
-      tb_product.*,
-      tb_unit.*,
-      tb_maintype.*,
-      GROUP_CONCAT(tb_price.id_result) AS id_result_array,
-      GROUP_CONCAT(tb_price.price) AS price_array,
-      GROUP_CONCAT(tb_price.price_time) AS price_time_array
-    FROM tb_price
-    INNER JOIN tb_product ON tb_price.id_prod = tb_product.id_product
-    INNER JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
-    INNER JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
-    WHERE tb_price.price_date = ?
-      AND tb_maintype.id = ?
-      AND tb_product.prod_status = 1
+      tb_product.name_pro,
+      tb_maintype.name_maintype,
+      tb_unit.unitname,
+      tb_price.price,
+      tb_price.price_date,
+      tb_price.price_time,
+      tb_price.id_result,
+      tb_result.name_result
+    FROM tb_product
+    LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
+    LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+    LEFT JOIN tb_price ON tb_product.id_product = tb_price.id_prod AND tb_price.price_date = ?
+    LEFT JOIN tb_result ON tb_price.id_result = tb_result.id
+    WHERE tb_product.prod_status = 1
   `;
-
-  let params = [date, id_maintype];
-
+  let params = [date];
+  if (id_maintype) {
+    sql += ' AND tb_maintype.id = ?';
+    params.push(id_maintype);
+  }
   if (id_result && id_result !== '-1') {
-    sql += " AND tb_price.id_result = ? ";
+    sql += ' AND tb_price.id_result = ?';
     params.push(id_result);
   }
-
-  sql += " GROUP BY tb_product.id_product ";
-
+  sql += ' ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result';
   try {
     const [result] = await conn.query(sql, params);
-    if (result.length > 0) {
-      console.log("Fetched prices:", result[0]);
-      res.json(result);
-    } else {
-      console.log("No prices found for the given criteria");
-      res.json([]); // Return an empty array if no results found
-    }
+    // กลุ่มข้อมูลตาม id_product
+    const grouped = result.reduce((acc, product) => {
+      if (!acc[product.id_product]) acc[product.id_product] = [];
+      acc[product.id_product].push(product);
+      return acc;
+    }, {});
+    // แปลงให้อยู่ในรูปแบบที่ต้องการ (array ของ object)
+    const products = Object.values(grouped).map(arr => {
+      const first = arr[0];
+      return {
+        id_product: first.id_product,
+        name_pro: first.name_pro,
+        name_maintype: first.name_maintype,
+        result: arr.filter(x => x.id_result).map(item => ({
+          price: item.price,
+          id_result: item.id_result,
+          name_result: item.name_result
+        })),
+        unitname: first.unitname,
+        price_date: first.price_date,
+        price_time: first.price_time
+      };
+    });
+    res.json(products);
   } catch (err) {
     console.error("Error executing query:", err);
     return res.status(500).json({ success: false, message: "Database error" });
@@ -672,6 +742,149 @@ app.post('/app_update_prodstatus', async (req, res) => {
   } catch (err) {
     console.error('Error updating prod_status:', err);
     res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+app.get('/app_product_req', async (req, res) => {
+  try {
+    const [rows] = await conn.query(
+      `SELECT id_product, name_pro, unitname FROM tb_product 
+       LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+       WHERE prod_status = 1
+       ORDER BY id_product`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching product req:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// --- Website CRUD ---
+app.get('/app_listwebsite', async (req, res) => {
+  try {
+    const [rows] = await conn.query('SELECT * FROM tb_website ORDER BY id DESC');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/app_listwebsite', async (req, res) => {
+  const { name_website, url_website, web_status } = req.body;
+  if (!name_website || !url_website) return res.status(400).json({ error: 'Missing data' });
+  try {
+    await conn.query('INSERT INTO tb_website (name_website, url_website, web_status) VALUES (?, ?, ?)', [name_website, url_website, web_status ?? 1]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.put('/app_listwebsite/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name_website, url_website, web_status } = req.body;
+  if (!name_website || !url_website) return res.status(400).json({ error: 'Missing data' });
+  try {
+    await conn.query('UPDATE tb_website SET name_website=?, url_website=?, web_status=? WHERE id=?', [name_website, url_website, web_status ?? 1, id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/app_listwebsite/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await conn.query('DELETE FROM tb_website WHERE id=?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// --- Product Management CRUD ---
+app.get('/app_manage_product', async (req, res) => {
+  try {
+    const search = req.query.search ? req.query.search.trim() : '';
+    const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
+    const pageSize = 50;
+    const offset = (page - 1) * pageSize;
+    let where = '';
+    let params = [];
+    if (search) {
+      where = 'WHERE tb_product.name_pro LIKE ?';
+      params.push(`%${search}%`);
+    }
+    // ดึงจำนวนทั้งหมด
+    const [countRows] = await conn.query(
+      `SELECT COUNT(*) as total FROM tb_product ${where}`,
+      params
+    );
+    const total = countRows[0].total;
+    const totalPages = Math.ceil(total / pageSize);
+    // ดึงข้อมูลหน้าปัจจุบัน
+    const [rows] = await conn.query(
+      `SELECT tb_product.*, tb_maintype.name_maintype, tb_unit.unitname
+       FROM tb_product
+       LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
+       LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+       ${where}
+       ORDER BY id_product ASC LIMIT ? OFFSET ?`,
+      [...params, pageSize, offset]
+    );
+    res.json({
+      data: rows,
+      page,
+      pageSize,
+      total,
+      totalPages
+    });
+  } catch (err) {
+    console.error('Error fetching products:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+app.post('/app_manage_product', async (req, res) => {
+  const { name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status } = req.body;
+  if (!name_pro || !id_group || !id_unit) return res.status(400).json({ error: 'Missing required fields' });
+  try {
+    await conn.query(
+      `INSERT INTO tb_product (name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name_pro, id_group, name_pro_en || '', name_pro_cn || '', id_unit, prod_status ?? 1, chart_status ?? 0]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error inserting product:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.put('/app_manage_product/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status } = req.body;
+  if (!name_pro || !id_group || !id_unit) return res.status(400).json({ error: 'Missing required fields' });
+  try {
+    await conn.query(
+      `UPDATE tb_product SET name_pro = ?, id_group = ?, name_pro_en = ?, name_pro_cn = ?, id_unit = ?, prod_status = ?, chart_status = ? WHERE id_product = ?`,
+      [name_pro, id_group, name_pro_en || '', name_pro_cn || '', id_unit, prod_status ?? 1, chart_status ?? 0, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error updating product:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/app_manage_product/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await conn.query('DELETE FROM tb_product WHERE id_product = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting product:', err);
+    res.status(500).json({ error: 'Database error' });
   }
 });
 
