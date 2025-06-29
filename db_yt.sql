@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.1
+-- version 5.0.3
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 28, 2025 at 11:53 AM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.0.30
+-- Generation Time: Jun 29, 2025 at 07:04 PM
+-- Server version: 10.4.14-MariaDB
+-- PHP Version: 7.4.11
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -31,7 +31,7 @@ CREATE TABLE `tb_img` (
   `id` int(11) NOT NULL,
   `name_img` varchar(255) NOT NULL,
   `img_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_img`
@@ -61,14 +61,14 @@ CREATE TABLE `tb_maintype` (
   `id` int(10) NOT NULL,
   `name_maintype` varchar(255) NOT NULL,
   `bud` int(11) DEFAULT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 --
 -- Dumping data for table `tb_maintype`
 --
 
 INSERT INTO `tb_maintype` (`id`, `name_maintype`, `bud`) VALUES
-(1, 'ผักทั่วไป', 1),
+(1, 'ผักใบ', 1),
 (6, 'อาหารสด', 5),
 (8, 'ผักปรุงรส', 1),
 (9, 'ผักเมืองหนาว', 2),
@@ -76,7 +76,8 @@ INSERT INTO `tb_maintype` (`id`, `name_maintype`, `bud`) VALUES
 (11, 'ผลไม้ฤดูกาล', 3),
 (12, 'ผลไม้นอก', 3),
 (14, 'พืชไร่', 4),
-(15, 'ส้ม', 4);
+(15, 'ส้ม', 4),
+(17, 'ผักผล', 13);
 
 -- --------------------------------------------------------
 
@@ -91,7 +92,7 @@ CREATE TABLE `tb_price` (
   `price_time` time NOT NULL DEFAULT current_timestamp(),
   `id_prod` int(11) NOT NULL,
   `id_result` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_price`
@@ -276,7 +277,13 @@ INSERT INTO `tb_price` (`id`, `price`, `price_date`, `price_time`, `id_prod`, `i
 (185, 55, '2025-06-28', '15:45:08', 170, 4),
 (186, 45, '2025-06-28', '15:45:08', 1, 4),
 (187, 50, '2025-06-28', '15:45:08', 36, 4),
-(188, 10, '2025-06-28', '15:45:08', 38, 4);
+(188, 10, '2025-06-28', '15:45:08', 38, 4),
+(189, 50, '2025-06-28', '00:08:56', 6, 1),
+(190, 1, '2025-06-27', '10:54:08', 48, 1),
+(191, 2, '2025-06-27', '10:54:08', 53, 1),
+(192, 3, '2025-06-27', '10:54:08', 59, 1),
+(193, 4, '2025-06-27', '10:54:08', 186, 1),
+(194, 5, '2025-06-27', '10:54:08', 188, 1);
 
 -- --------------------------------------------------------
 
@@ -293,7 +300,7 @@ CREATE TABLE `tb_product` (
   `id_unit` int(11) NOT NULL,
   `prod_status` int(11) NOT NULL,
   `chart_status` int(11) NOT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 --
 -- Dumping data for table `tb_product`
@@ -302,36 +309,36 @@ CREATE TABLE `tb_product` (
 INSERT INTO `tb_product` (`id_product`, `name_pro`, `id_group`, `name_pro_en`, `name_pro_cn`, `id_unit`, `prod_status`, `chart_status`) VALUES
 (1, 'กระเจี๊ยบเขียว', 1, 'Okra', '秋葵', 1, 1, 1),
 (4, 'กะหล่ำปลีเขียว', 1, 'Green cabbage', '青菜', 1, 1, 1),
-(6, 'กะหล่ำปลีม่วง', 1, 'Purple cabbage', '紫甘蓝', 1, 0, 0),
+(6, 'กะหล่ำปลีม่วง', 1, 'Purple cabbage', '紫甘蓝', 1, 1, 0),
 (7, 'กะหล่ำปลีหัวใจ', 1, 'Heart cabbage', '心白菜', 1, 0, 0),
 (9, 'กุยช่ายขาว', 1, 'garlic chives', '蒜韭菜', 1, 0, 0),
 (10, 'กุยช่ายดอก', 1, 'garlic chives', '蒜韭菜', 1, 0, 0),
 (11, 'ข้าวโพดฝักอ่อน', 1, 'Baby corn', '玉米笋', 1, 0, 0),
-(12, 'ขึ้นฉ่าย', 1, 'Celery', '芹菜', 1, 0, 0),
+(12, 'ขึ้นฉ่าย', 1, 'Celery', '芹菜', 1, 1, 0),
 (13, 'แขนงคะน้า', 1, 'Kale', '羽衣甘蓝', 1, 0, 0),
-(24, 'บวบเหลี่ยม', 1, 'Zucchini', '夏南瓜', 1, 0, 0),
+(24, 'บวบเหลี่ยม', 1, 'Zucchini', '夏南瓜', 1, 1, 0),
 (25, 'บวบงู', 1, 'Zucchini', '夏南瓜', 1, 0, 0),
 (26, 'บวบหอม', 1, 'Zucchini', '夏南瓜', 1, 0, 0),
 (27, 'ผักกวางตุ้งไต้หวัน', 1, 'Guangdong vegetable', '广东蔬菜', 1, 0, 0),
 (28, 'ผักกวางตุ้งดอก', 1, 'Choy', '广东蔬菜', 1, 0, 0),
-(29, 'ผักกวางตุ้งธรรมดา', 1, 'Choy', '广东蔬菜', 1, 0, 0),
-(35, 'ผักกาดขาว(ลุ้ย)', 1, 'Chinese cabbage', '白菜', 1, 0, 1),
+(29, 'ผักกวางตุ้ง', 1, 'Choy', '广东蔬菜', 1, 1, 0),
+(35, 'ผักกาดขาว(ลุ้ย)', 1, 'Chinese cabbage', '白菜', 1, 1, 0),
 (36, 'ผักกาดหอม', 1, 'Lettuce', '生菜', 1, 1, 0),
 (37, 'ผักขมจีน', 1, 'Chinese spinach', '中国菠菜', 1, 0, 0),
-(38, 'ผักบุ้งไทย', 1, 'Thai Convolvulus', '喇叭花', 1, 1, 1),
-(39, 'ผักบุ้งจีน', 1, 'Chinese Convolvulus', '喇叭花', 1, 0, 1),
+(38, 'ผักบุ้งไทย', 1, 'Thai Convolvulus', '喇叭花', 1, 1, 0),
+(39, 'ผักบุ้งจีน', 1, 'Chinese Convolvulus', '喇叭花', 1, 1, 0),
 (41, 'ฟักเขียวอ่อน', 1, 'winter melon', '冬瓜', 1, 0, 0),
 (45, 'มะเขือเทศผลใหญ่ ', 1, 'Big tomatoes', '番茄', 1, 0, 0),
 (46, 'มะเขือเทศราชินี ', 1, 'Cherry tomatoes', '番茄', 1, 0, 0),
 (47, 'มะเขือเทศสีดา ', 1, 'Tomato', '番茄', 1, 0, 0),
-(48, 'มะเขือเปราะ ', 1, 'Eggplant', '茄子', 1, 0, 0),
+(48, 'มะเขือเปราะ ', 17, 'Eggplant', '茄子', 1, 1, 0),
 (49, 'มะเขือไข่เต่า ', 1, 'Eggplant Eggplant', '茄子', 1, 0, 0),
 (50, 'มะเขือพวง ', 1, 'pea eggplant', '茄子', 1, 0, 0),
 (52, 'มะเขือม่วง ', 1, 'Eggplant', '茄子', 1, 0, 0),
-(53, 'มะเขือยาว ', 1, 'Eggplant ', '茄子', 1, 0, 0),
+(53, 'มะเขือยาว ', 17, 'Eggplant ', '茄子', 1, 1, 0),
 (56, 'มะเขือลิง ', 1, 'Eggplant', '茄子', 1, 0, 0),
-(58, 'มะระจีน ', 1, 'Chinese gourd', '中国葫芦', 1, 0, 0),
-(59, 'มะละกอดิบ ', 1, 'Raw papaya', '生木瓜', 1, 0, 0),
+(58, 'มะระจีน ', 1, 'Chinese gourd', '中国葫芦', 1, 1, 0),
+(59, 'มะละกอดิบ ', 17, 'Raw papaya', '生木瓜', 1, 1, 0),
 (62, 'ยอดมะพร้าว ', 1, 'Coconut', '椰子', 1, 0, 0),
 (64, 'ลูกน้ำเต้า ', 1, 'Gourd', '葫芦', 1, 0, 0),
 (72, 'เห็ดเป๋าฮื้อ ', 1, 'Abalone mushroom', '鲍鱼蘑菇', 1, 0, 0),
@@ -347,7 +354,7 @@ INSERT INTO `tb_product` (`id_product`, `name_pro`, `id_group`, `name_pro_en`, `
 (146, 'แตงโมอ่อน', 1, 'Baby Watermelon', '西瓜', 1, 0, 0),
 (147, 'แตงกวา', 1, 'cucumber', '黄瓜', 1, 0, 0),
 (148, 'แตงร้าน', 1, 'Long Cucumber', '长黄瓜', 1, 0, 0),
-(149, 'ถั่วฝักยาว', 1, 'Long bean', '长豆', 1, 0, 0),
+(149, 'ถั่วฝักยาว', 1, 'Long bean', '长豆', 1, 1, 0),
 (150, 'ถั่วพู', 1, 'Bean', '豆', 1, 0, 0),
 (151, 'ถั่วลันเตาจีน', 1, 'Chinese beans', '豆', 1, 0, 0),
 (152, 'ถั่วลันเตาหวานนอก', 1, 'Sweet beans', '豆', 1, 0, 0),
@@ -367,22 +374,22 @@ INSERT INTO `tb_product` (`id_product`, `name_pro`, `id_group`, `name_pro_en`, `
 (166, 'ข่าอ่อน', 1, 'Galangal', '高良姜', 1, 0, 0),
 (167, 'ข่าแก่', 1, 'Galvanize', '高良姜', 1, 0, 0),
 (168, 'ตะไคร้', 1, 'lemon grass', '柠檬草', 1, 0, 0),
-(169, 'ต้นหอม', 1, 'Onion', '洋葱', 1, 0, 0),
-(170, 'ผักชีไทย', 1, 'Coriander Thailand', '香菜泰国', 1, 1, 0),
-(171, 'ผักชีฝรั่ง', 1, 'Parsley', '芹菜', 1, 0, 0),
-(172, 'ผักชีลาว', 1, 'Dill', '莳萝', 1, 0, 0),
+(169, 'ต้นหอม', 1, 'Onion', '洋葱', 1, 1, 0),
+(170, 'ผักชีไทย', 1, 'Coriander Thailand', '香菜泰国', 1, 1, 1),
+(171, 'ผักชีฝรั่ง', 1, 'Parsley', '芹菜', 1, 1, 0),
+(172, 'ผักชีลาว', 1, 'Dill', '莳萝', 1, 1, 0),
 (176, 'ลูกมะกรูด', 1, 'Bergamot', '佛手柑', 1, 0, 0),
-(177, 'ใบกระเพรา', 1, 'Holy basil', '圣罗勒', 1, 0, 0),
+(177, 'ใบกระเพรา', 1, 'Holy basil', '圣罗勒', 1, 1, 0),
 (178, 'ใบมะกรูด', 1, 'Lime leaf', '石灰叶', 1, 0, 0),
 (179, 'ใบแมงลัก', 1, 'Basil', '罗勒', 1, 0, 0),
-(180, 'ใบสะระแหน่', 1, 'Mint leaves', '薄荷叶', 1, 0, 0),
-(181, 'ใบโหระพา', 1, 'Basil leaf', '罗勒叶', 1, 0, 0),
+(180, 'ใบสะระแหน่', 1, 'Mint leaves', '薄荷叶', 1, 1, 0),
+(181, 'ใบโหระพา', 1, 'Basil leaf', '罗勒叶', 1, 1, 0),
 (182, 'พริกไทยอ่อน', 1, 'pepper', '胡椒', 1, 0, 0),
 (183, 'พริกชี้ฟ้าเขียว', 1, 'Green chili', '青辣椒', 1, 0, 0),
 (184, 'พริกชี้ฟ้าแดง', 1, 'Red chili', '红辣椒', 1, 0, 0),
 (185, 'พริกจินดาเขียว', 1, 'Green chili', '青辣椒', 1, 0, 0),
-(186, 'พริกจินดาแดง', 1, 'Red chili', '红辣椒', 1, 0, 0),
-(188, 'พริกกะเหรี่ยง', 1, 'Bird chili', '辣椒', 1, 0, 0),
+(186, 'พริกจินดาแดง', 17, 'Red chili', '红辣椒', 1, 1, 0),
+(188, 'พริกกะเหรี่ยง', 17, 'Bird chili', '辣椒', 1, 1, 0),
 (189, 'พริกขี้หนูสวนใหญ่', 1, 'Big Chilli', '辣椒头', 1, 0, 0),
 (190, 'พริกขี้หนูสวนเล็ก', 1, 'Small Chilli', '小辣椒', 1, 0, 0),
 (191, 'พริกขี้หนูคลองท่อ', 1, 'Chilli', '辣椒', 1, 0, 0),
@@ -390,7 +397,7 @@ INSERT INTO `tb_product` (`id_product`, `name_pro`, `id_group`, `name_pro_en`, `
 (193, 'พริกยำเขียว', 1, 'Green Pepper', '绿皮书', 1, 0, 0),
 (194, 'พริกยำแดง', 1, 'Red Pepper', '辣椒', 1, 0, 0),
 (195, 'พริกมัน', 1, 'Chili', '辣椒', 1, 0, 0),
-(196, 'พริกหยวก', 1, 'Bell pepper', '灯笼椒', 1, 0, 0),
+(196, 'พริกหยวก', 1, 'Bell pepper', '灯笼椒', 1, 1, 0),
 (197, 'ใบกระเจี๊ยบ', 1, 'Okra', '秋葵', 1, 0, 0),
 (198, 'มะระขี้นก', 1, 'Bitter gourd', '苦瓜', 1, 0, 0),
 (199, 'ดอกแค', 1, 'Agasta', '大花田菁', 1, 0, 0),
@@ -741,7 +748,8 @@ INSERT INTO `tb_product` (`id_product`, `name_pro`, `id_group`, `name_pro_en`, `
 (663, 'สะตอแกะ', 1, '', '', 1, 0, 0),
 (664, 'มัน5นาที', 1, '', '', 1, 0, 0),
 (665, 'ฝรั่งไส้แดง', 1, '', '', 1, 0, 0),
-(666, 'xxx', 6, 'tested', 'xxxxCN', 1, 1, 0);
+(666, 'xxx', 6, 'tested', 'xxxxCN', 1, 0, 0),
+(667, 'ผักโขม', 1, '', '', 1, 1, 0);
 
 -- --------------------------------------------------------
 
@@ -755,7 +763,7 @@ CREATE TABLE `tb_prompt` (
   `title_prompt` varchar(255) NOT NULL,
   `name_prompt` varchar(5000) NOT NULL,
   `prompt_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_prompt`
@@ -784,7 +792,7 @@ CREATE TABLE `tb_result` (
   `id` int(11) NOT NULL,
   `name_result` varchar(255) NOT NULL,
   `result_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_result`
@@ -806,7 +814,7 @@ CREATE TABLE `tb_unit` (
   `id_unit` int(10) NOT NULL,
   `unitname` varchar(50) NOT NULL,
   `unitname_en` varchar(50) NOT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
 --
 -- Dumping data for table `tb_unit`
@@ -839,7 +847,7 @@ CREATE TABLE `tb_user` (
   `username` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
   `user_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_user`
@@ -859,14 +867,18 @@ CREATE TABLE `tb_website` (
   `name_website` varchar(255) NOT NULL,
   `url_website` varchar(255) NOT NULL,
   `web_status` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `tb_website`
 --
 
 INSERT INTO `tb_website` (`id`, `name_website`, `url_website`, `web_status`) VALUES
-(1, 'ตลาดศรีเมือง', 'https://www.taladsrimuang.com/site/product/report_all.php?id=1', 1);
+(1, 'ตลาดศรีเมือง', 'https://www.taladsrimuang.com/site/product/report_all.php?id=1', 1),
+(3, 'ตลาดไท', 'https://talaadthai.com/search/%E0%B8%9C%E0%B8%B1%E0%B8%81%E0%B8%8A%E0%B8%B5', 1),
+(4, 'ตลาดสี่มุมเมือง', 'https://www.simummuangmarket.com/product/113', 1),
+(5, 'เกษตรสมบูรณ์ ', 'https://www.kasetsomboon.com/%e0%b8%a3%e0%b8%b2%e0%b8%84%e0%b8%b2%e0%b8%9c%e0%b8%b1%e0%b8%81/', 1),
+(6, 'j-pad', 'https://j-pad.net/%E0%B8%A3%E0%B8%B2%E0%B8%84%E0%B8%B2%E0%B8%AA%E0%B8%B4%E0%B8%99%E0%B8%84%E0%B9%89%E0%B8%B2%E0%B8%A7%E0%B8%B1%E0%B8%99%E0%B8%99%E0%B8%B5%E0%B9%89?cate=12', 1);
 
 --
 -- Indexes for dumped tables
@@ -942,19 +954,19 @@ ALTER TABLE `tb_img`
 -- AUTO_INCREMENT for table `tb_maintype`
 --
 ALTER TABLE `tb_maintype`
-  MODIFY `id` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT for table `tb_price`
 --
 ALTER TABLE `tb_price`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=189;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=195;
 
 --
 -- AUTO_INCREMENT for table `tb_product`
 --
 ALTER TABLE `tb_product`
-  MODIFY `id_product` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=667;
+  MODIFY `id_product` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=668;
 
 --
 -- AUTO_INCREMENT for table `tb_prompt`
@@ -984,7 +996,7 @@ ALTER TABLE `tb_user`
 -- AUTO_INCREMENT for table `tb_website`
 --
 ALTER TABLE `tb_website`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
