@@ -453,10 +453,11 @@ app.use('/upload', express.static(path.join(__dirname, 'public', 'upload')));
 app.get('/app_listproducts', async (req, res) => {
   console.log("Fetching list of products...today");
   let allProducts = [];
-  // รองรับการส่ง date และ id_result มาทาง query string
+  // รองรับการส่ง date, id_result, id_maintype มาทาง query string
   let dateNow = req.query.date || moment().format('YYYY-MM-DD');
   let id_result = req.query.id_result;
-  console.log("Fetching products for date:", dateNow, "id_result:", id_result);
+  let id_maintype = req.query.id_maintype;
+  console.log("Fetching products for date:", dateNow, "id_result:", id_result, "id_maintype:", id_maintype);
   let sql = `
     SELECT 
       tb_product.id_product,
@@ -476,6 +477,11 @@ app.get('/app_listproducts', async (req, res) => {
     AND tb_product.prod_status = 1
   `;
   let params = [dateNow];
+  // เงื่อนไขเลือกทั้งหมด: ถ้า id_maintype ไม่มีหรือเป็น 0 ไม่ต้อง filter
+  if (id_maintype && id_maintype !== '0' && id_maintype !== 0) {
+    sql += ' AND tb_maintype.id = ?';
+    params.push(id_maintype);
+  }
   if (id_result && id_result !== '-1') {
     sql += ' AND tb_price.id_result = ?';
     params.push(id_result);
@@ -605,9 +611,8 @@ app.get('/app_vegetable-prices', async (req, res) => {
 
   try {
     const ids = await getProductIds();
-    if (ids.length !== 5) {
-      return res.status(400).json({ success: false, message: "ไม่พบผัก chart_status = 1 ครบ 5 ตัว" });
-    }
+    if (!ids.length) return res.json([]); // ถ้าไม่มี id เลย return array ว่าง
+    const placeholders = ids.map(() => '?').join(',');
     const sql = `
       SELECT 
         tb_product.id_product,
@@ -624,7 +629,7 @@ app.get('/app_vegetable-prices', async (req, res) => {
       LEFT JOIN tb_price ON tb_product.id_product = tb_price.id_prod
       LEFT JOIN tb_result ON tb_price.id_result = tb_result.id
       WHERE tb_price.price_date BETWEEN CURDATE() - INTERVAL 6 DAY AND CURDATE()
-        AND tb_product.id_product IN (?, ?, ?, ?, ?)
+        AND tb_product.id_product IN (${placeholders})
         AND tb_result.id = ?
       ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.price_date, tb_price.id_result
     `;
@@ -812,13 +817,20 @@ app.get('/app_manage_product', async (req, res) => {
     const offset = (page - 1) * pageSize;
     let where = '';
     let params = [];
+    // เพิ่ม filter chart_status=1
+    if (req.query.chart_status === '1') {
+      where += (where ? ' AND' : ' WHERE') + ' chart_status=1';
+    }
+    if (req.query.prod_status === '1') {
+      where += (where ? ' AND' : ' WHERE') + ' prod_status=1';
+    }
     if (search) {
-      where = 'WHERE tb_product.name_pro LIKE ?';
+      where += (where ? ' AND' : ' WHERE') + ' name_pro LIKE ?';
       params.push(`%${search}%`);
     }
     // ดึงจำนวนทั้งหมด
     const [countRows] = await conn.query(
-      `SELECT COUNT(*) as total FROM tb_product ${where}`,
+      `SELECT COUNT(*) as total FROM tb_product${where}`,
       params
     );
     const total = countRows[0].total;
