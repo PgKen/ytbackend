@@ -1,0 +1,9 @@
+สร้างไฟล์ deploy.sh ให้เรียบร้อยแล้วในโฟลเดอร์ ytbackend
+
+วิธีใช้งาน
+อัปโหลดไฟล์ทั้งหมด (รวม .env, ecosystem.config.js, deploy.sh) ไปยังเซิร์ฟเวอร์
+1.ให้สิทธิ์รัน:
+chmod +x deploy.sh
+
+2.รัน deploy
+รัน deploy

@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 // const mysql = require('mysql2');
@@ -23,10 +24,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 var db_config = {
-  host: "localhost",
-  user: "root",
-  password: "comp@113",
-  database: "db_yt",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
 };
 
 let conn;
@@ -902,7 +903,7 @@ app.delete('/app_manage_product/:id', async (req, res) => {
 
 
 
-const port = 4222;
+const port = process.env.PORT || 4222;
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
