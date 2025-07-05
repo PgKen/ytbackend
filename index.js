@@ -23,24 +23,16 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-var db_config = {
+// เปลี่ยนจาก createConnection เป็น createPool
+const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-};
-
-let conn;
-async function handleDisconnect() {
-  try {
-    conn = await mysql.createConnection(db_config);
-    console.log('MySQL connected (promise)');
-  } catch (err) {
-    console.error('Error when connecting to db:', err);
-    setTimeout(handleDisconnect, 2000);
-  }
-}
-handleDisconnect();
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
 
 function parseLine(line) {
   // ตัวอย่าง: "ตลาดไท-ผักบุ้งไทย-24-บาท/มัด" หรือ "ตลาดไท ผักบุ้งไทย 24 บาท/มัด" หรือ "ผักชีไทย 25 บาท"
@@ -115,8 +107,8 @@ app.post('/app_insertdata', async (req, res) => {
     }
 
     // ดึงข้อมูลตลาดและสินค้า (map ชื่อเป็น id)
-    const [results] = await conn.query('SELECT id, name_result FROM tb_result');
-    const [products] = await conn.query('SELECT id_product, name_pro FROM tb_product');
+    const [results] = await pool.query('SELECT id, name_result FROM tb_result');
+    const [products] = await pool.query('SELECT id_product, name_pro FROM tb_product');
 
     // console.log("Fetched results:", results
     //   , "\nFetched products:", products
@@ -150,13 +142,13 @@ app.post('/app_insertdata', async (req, res) => {
       if (!resultMap[market] || !productMap[product] || isNaN(price)) continue;
 
       // เช็คว่ามีข้อมูลนี้อยู่หรือยัง
-      const [rows] = await conn.query(
+      const [rows] = await pool.query(
         'SELECT id FROM tb_price WHERE price_date = ? AND id_prod = ? AND id_result = ?',
         [today, productMap[product], resultMap[market]]
       );
       if (rows.length > 0) {
         // update
-        await conn.query(
+        await pool.query(
           'UPDATE tb_price SET price = ?, price_time = ? WHERE price_date = ? AND id_prod = ? AND id_result = ?',
           [price, time, today, productMap[product], resultMap[market]]
         );
@@ -164,7 +156,7 @@ app.post('/app_insertdata', async (req, res) => {
         updatedNames.push(product);
       } else {
         // insert
-        await conn.query(
+        await pool.query(
           'INSERT INTO tb_price (price, price_date, price_time, id_prod, id_result) VALUES (?, ?, ?, ?, ?)',
           [price, today, time, productMap[product], resultMap[market]]
         );
@@ -188,7 +180,7 @@ app.get('/', (req, res) => {
 app.post("/app_login", async (req, res) => {
   const { username, password } = req.body;
   try {
-    const [result] = await conn.query(
+    const [result] = await pool.query(
       "SELECT * FROM tb_user WHERE username = ? AND password = ?",
       [username, password]
     );
@@ -205,7 +197,7 @@ app.post("/app_login", async (req, res) => {
 
 app.get('/listresult', async (req, res) => {
   try {
-    const [results] = await conn.query('SELECT * FROM tb_result');
+    const [results] = await pool.query('SELECT * FROM tb_result');
     res.json(results);
   } catch (err) {
     console.error('Error fetching results:', err);
@@ -218,7 +210,7 @@ app.get("/app_maintypes", async (req, res) => {
   try {
     log("Fetching main types from database...");
     const sql = "SELECT * FROM tb_maintype";
-    const [result] = await conn.query(sql);
+    const [result] = await pool.query(sql);
     res.json(result);
   } catch (err) {
     console.error("Error executing query:", err);
@@ -230,7 +222,7 @@ app.get('/app_unit', async (req, res) => {
   try {
     console.log("Fetching list of units...");
     const sql = "SELECT * FROM tb_unit";
-    const [result] = await conn.query(sql);
+    const [result] = await pool.query(sql);
     // console.log("Fetched units:", result);
     res.json(result);
   } catch (err) {
@@ -241,7 +233,7 @@ app.get('/app_unit', async (req, res) => {
 
 app.get('/app_result', async (req, res) => {
   try {
-    const [results] = await conn.query('SELECT * FROM tb_result');
+    const [results] = await pool.query('SELECT * FROM tb_result');
     res.json(results);
   } catch (err) {
     console.error('Error fetching results:', err);
@@ -261,15 +253,15 @@ app.get('/app_getmaintypes/:id/:id_result', async (req, res) => {
 
   try {
     // ดึงวันที่ล่าสุดจาก tb_price
-    const [latestDateRow] = await conn.query('SELECT MAX(price_date) AS latest_date FROM tb_price');
+    const [latestDateRow] = await pool.query('SELECT MAX(price_date) AS latest_date FROM tb_price');
     const latestDate = latestDateRow[0].latest_date;
-    const [result] = await conn.query(sql, [id]);
+    const [result] = await pool.query(sql, [id]);
     if (result.length > 0) {
       // ดึงราคาล่าสุดของแต่ละ product เฉพาะ id_result ที่รับมา
       const prodIds = result.map(row => row.id_product);
       if (prodIds.length === 0) return res.json(result);
       const priceSql = `SELECT id_prod, price FROM tb_price WHERE price_date = ? AND id_result = ? AND id_prod IN (${prodIds.map(() => '?').join(',')})`;
-      const [priceRows] = await conn.query(priceSql, [latestDate, id_result, ...prodIds]);
+      const [priceRows] = await pool.query(priceSql, [latestDate, id_result, ...prodIds]);
       // map id_prod => price
       const priceMap = {};
       priceRows.forEach(row => { priceMap[row.id_prod] = row.price; });
@@ -318,7 +310,7 @@ app.post('/app_showprice', async (req, res) => {
   }
   sql += ' ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result';
   try {
-    const [result] = await conn.query(sql, params);
+    const [result] = await pool.query(sql, params);
     // กลุ่มข้อมูลตาม id_product
     const grouped = result.reduce((acc, product) => {
       if (!acc[product.id_product]) acc[product.id_product] = [];
@@ -363,20 +355,20 @@ app.post('/app_saveprice', async (req, res) => {
   try {
     for (const item of filteredPayload) {
       // เช็คว่ามีข้อมูลนี้อยู่หรือยัง
-      const [rows] = await conn.query(
+      const [rows] = await pool.query(
         'SELECT id FROM tb_price WHERE price_date = ? AND id_prod = ? AND id_result = ?',
         [item.date, item.id_prod, item.id_result]
       );
       if (rows.length > 0) {
         // update
-        await conn.query(
+        await pool.query(
           'UPDATE tb_price SET price = ?, price_time = ? WHERE price_date = ? AND id_prod = ? AND id_result = ?',
           [item.price, valTime, item.date, item.id_prod, item.id_result]
         );
         updated++;
       } else {
         // insert
-        await conn.query(
+        await pool.query(
           'INSERT INTO tb_price (price, price_date, price_time, id_prod, id_result) VALUES (?, ?, ?, ?, ?)',
           [item.price, item.date, valTime, item.id_prod, item.id_result]
         );
@@ -427,7 +419,7 @@ app.post('/app_uploadimg', upload.single('image'), async (req, res) => {
   // Insert new filename into tb_img
   const sql = 'INSERT INTO tb_img (name_img) VALUES (?)';
   try {
-    await conn.query(sql, [newFilename]);
+    await pool.query(sql, [newFilename]);
     res.json({ success: true, message: 'File uploaded and saved to DB', filename: newFilename, path: `/public/upload/${newFilename}` });
   } catch (err) {
     console.error('Error saving image filename:', err);
@@ -438,7 +430,7 @@ app.post('/app_uploadimg', upload.single('image'), async (req, res) => {
 app.get('/app_listimg', async (req, res) => {
   const sql = 'SELECT * FROM tb_img ORDER BY id DESC';
   try {
-    const [results] = await conn.query(sql);
+    const [results] = await pool.query(sql);
     res.json(results);
   } catch (err) {
     console.error('Error fetching images:', err);
@@ -489,7 +481,7 @@ app.get('/app_listproducts', async (req, res) => {
   }
   sql += ' ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result';
   try {
-    const [result] = await conn.query(sql, params);
+    const [result] = await pool.query(sql, params);
     allProducts = result;
     console.log("Fetched products:", allProducts.length, "items");
     res.json(groupProductsByid_product(allProducts));
@@ -559,7 +551,7 @@ app.get('/app_listproducts_yeserday', async (req, res) => {
   }
   sql += ' ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result';
   try {
-    const [result] = await conn.query(sql, params);
+    const [result] = await pool.query(sql, params);
     allProducts = result;
     console.log("Fetched products:", allProducts.length, "items");
     res.json(groupProductsByid_product(allProducts));
@@ -602,7 +594,7 @@ app.get('/app_vegetable-prices', async (req, res) => {
   // ดึง id ผัก 5 ตัว จากฐานข้อมูล
   const getProductIds = async () => {
     const sql = 'SELECT id_product FROM tb_product WHERE chart_status = 1 LIMIT 5';
-    const [results] = await conn.query(sql);
+    const [results] = await pool.query(sql);
     const ids = results.map(row => row.id_product);
     return ids;
   };
@@ -634,7 +626,7 @@ app.get('/app_vegetable-prices', async (req, res) => {
         AND tb_result.id = ?
       ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.price_date, tb_price.id_result
     `;
-    const [result] = await conn.query(sql, [...ids, id_result]);
+    const [result] = await pool.query(sql, [...ids, id_result]);
     // map date ให้เป็น 10/02/25
     const mapped = result.map(row => ({
       ...row,
@@ -650,7 +642,7 @@ app.get('/app_vegetable-prices', async (req, res) => {
 app.get('/app_listprompts', async (req, res) => {
   const sql = 'SELECT * FROM tb_prompt ORDER BY id DESC';
   try {
-    const [results] = await conn.query(sql);
+    const [results] = await pool.query(sql);
     res.json(results);
   } catch (err) {
     console.error('Error fetching prompts:', err);
@@ -661,7 +653,7 @@ app.get('/app_listprompts', async (req, res) => {
 app.get('/app_latestprices', async (req, res) => {
   // ดึงวันที่ล่าสุดจาก tb_price
   try {
-    const [latestDateRow] = await conn.query('SELECT MAX(price_date) AS latest_date FROM tb_price');
+    const [latestDateRow] = await pool.query('SELECT MAX(price_date) AS latest_date FROM tb_price');
     const latestDate = latestDateRow[0].latest_date;
     if (!latestDate) {
       return res.status(404).json({ success: false, message: 'No price data found' });
@@ -684,7 +676,7 @@ app.get('/app_latestprices', async (req, res) => {
       WHERE tb_price.price_date = ?
       ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result
     `;
-    const [result] = await conn.query(sql, [latestDate]);
+    const [result] = await pool.query(sql, [latestDate]);
     res.json(result);
   } catch (err) {
     console.error('Error fetching latest price date:', err);
@@ -707,7 +699,7 @@ app.get('/app_listshow', async (req, res) => {
     }
 
     // ดึงจำนวนทั้งหมด (filter ด้วย search ถ้ามี)
-    const [countRows] = await conn.query(
+    const [countRows] = await pool.query(
       `SELECT COUNT(*) as total FROM tb_product ${where}`,
       params
     );
@@ -715,7 +707,7 @@ app.get('/app_listshow', async (req, res) => {
     const totalPages = Math.ceil(total / pageSize);
 
     // ดึงข้อมูลหน้าปัจจุบัน (filter ด้วย search ถ้ามี)
-    const [rows] = await conn.query(
+    const [rows] = await pool.query(
       `SELECT tb_product.*, tb_maintype.name_maintype, tb_unit.unitname
        FROM tb_product
        LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
@@ -743,7 +735,7 @@ app.post('/app_update_prodstatus', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing id_product or prod_status' });
   }
   try {
-    await conn.query('UPDATE tb_product SET prod_status = ? WHERE id_product = ?', [prod_status, id_product]);
+    await pool.query('UPDATE tb_product SET prod_status = ? WHERE id_product = ?', [prod_status, id_product]);
     res.json({ success: true, message: 'Product status updated', id_product, prod_status });
   } catch (err) {
     console.error('Error updating prod_status:', err);
@@ -753,7 +745,7 @@ app.post('/app_update_prodstatus', async (req, res) => {
 
 app.get('/app_product_req', async (req, res) => {
   try {
-    const [rows] = await conn.query(
+    const [rows] = await pool.query(
       `SELECT id_product, name_pro, unitname FROM tb_product 
        LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
        WHERE prod_status = 1
@@ -769,7 +761,7 @@ app.get('/app_product_req', async (req, res) => {
 // --- Website CRUD ---
 app.get('/app_listwebsite', async (req, res) => {
   try {
-    const [rows] = await conn.query('SELECT * FROM tb_website ORDER BY id DESC');
+    const [rows] = await pool.query('SELECT * FROM tb_website ORDER BY id DESC');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
@@ -780,7 +772,7 @@ app.post('/app_listwebsite', async (req, res) => {
   const { name_website, url_website, web_status } = req.body;
   if (!name_website || !url_website) return res.status(400).json({ error: 'Missing data' });
   try {
-    await conn.query('INSERT INTO tb_website (name_website, url_website, web_status) VALUES (?, ?, ?)', [name_website, url_website, web_status ?? 1]);
+    await pool.query('INSERT INTO tb_website (name_website, url_website, web_status) VALUES (?, ?, ?)', [name_website, url_website, web_status ?? 1]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
@@ -792,7 +784,7 @@ app.put('/app_listwebsite/:id', async (req, res) => {
   const { name_website, url_website, web_status } = req.body;
   if (!name_website || !url_website) return res.status(400).json({ error: 'Missing data' });
   try {
-    await conn.query('UPDATE tb_website SET name_website=?, url_website=?, web_status=? WHERE id=?', [name_website, url_website, web_status ?? 1, id]);
+    await pool.query('UPDATE tb_website SET name_website=?, url_website=?, web_status=? WHERE id=?', [name_website, url_website, web_status ?? 1, id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
@@ -802,7 +794,7 @@ app.put('/app_listwebsite/:id', async (req, res) => {
 app.delete('/app_listwebsite/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await conn.query('DELETE FROM tb_website WHERE id=?', [id]);
+    await pool.query('DELETE FROM tb_website WHERE id=?', [id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
@@ -830,14 +822,14 @@ app.get('/app_manage_product', async (req, res) => {
       params.push(`%${search}%`);
     }
     // ดึงจำนวนทั้งหมด
-    const [countRows] = await conn.query(
+    const [countRows] = await pool.query(
       `SELECT COUNT(*) as total FROM tb_product${where}`,
       params
     );
     const total = countRows[0].total;
     const totalPages = Math.ceil(total / pageSize);
     // ดึงข้อมูลหน้าปัจจุบัน
-    const [rows] = await conn.query(
+    const [rows] = await pool.query(
       `SELECT tb_product.*, tb_maintype.name_maintype, tb_unit.unitname
        FROM tb_product
        LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
@@ -863,7 +855,7 @@ app.post('/app_manage_product', async (req, res) => {
   const { name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status } = req.body;
   if (!name_pro || !id_group || !id_unit) return res.status(400).json({ error: 'Missing required fields' });
   try {
-    await conn.query(
+    await pool.query(
       `INSERT INTO tb_product (name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [name_pro, id_group, name_pro_en || '', name_pro_cn || '', id_unit, prod_status ?? 1, chart_status ?? 0]
     );
@@ -879,7 +871,7 @@ app.put('/app_manage_product/:id', async (req, res) => {
   const { name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status } = req.body;
   if (!name_pro || !id_group || !id_unit) return res.status(400).json({ error: 'Missing required fields' });
   try {
-    await conn.query(
+    await pool.query(
       `UPDATE tb_product SET name_pro = ?, id_group = ?, name_pro_en = ?, name_pro_cn = ?, id_unit = ?, prod_status = ?, chart_status = ? WHERE id_product = ?`,
       [name_pro, id_group, name_pro_en || '', name_pro_cn || '', id_unit, prod_status ?? 1, chart_status ?? 0, id]
     );
@@ -893,10 +885,28 @@ app.put('/app_manage_product/:id', async (req, res) => {
 app.delete('/app_manage_product/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await conn.query('DELETE FROM tb_product WHERE id_product = ?', [id]);
+    await pool.query('DELETE FROM tb_product WHERE id_product = ?', [id]);
     res.json({ success: true });
   } catch (err) {
     console.error('Error deleting product:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// ค้นหาชื่อสินค้า (autocomplete)
+app.get('/app_searchname', async (req, res) => {
+  const q = req.query.q ? req.query.q.trim() : '';
+  if (!q || q.length < 3) {
+    return res.json([]); // ต้องพิมพ์อย่างน้อย 3 ตัวอักษร
+  }
+  try {
+    const [rows] = await pool.query(
+      'SELECT id_product, name_pro FROM tb_product WHERE name_pro LIKE ? LIMIT 10',
+      [`%${q}%`]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error searching product name:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
