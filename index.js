@@ -97,7 +97,7 @@ app.post('/app_insertdata', async (req, res) => {
   try {
     // รับข้อมูลแบบ text หรือ array ก็ได้
     let { data, price_date, price_time } = req.body;
-    console.log("Received data:", data);
+    // console.log("Received data:", data);
     
     if (!data) return res.status(400).json({ error: "No data" });
 
@@ -220,7 +220,7 @@ app.get("/app_maintypes", async (req, res) => {
 
 app.get('/app_unit', async (req, res) => {
   try {
-    console.log("Fetching list of units...");
+    // console.log("Fetching list of units...");
     const sql = "SELECT * FROM tb_unit";
     const [result] = await pool.query(sql);
     // console.log("Fetched units:", result);
@@ -244,7 +244,7 @@ app.get('/app_result', async (req, res) => {
 app.get('/app_getmaintypes/:id/:id_result', async (req, res) => {
   const id = req.params.id;
   const id_result = req.params.id_result;
-  console.log("Fetching image price for ID:", id, "id_result:", id_result);
+  // console.log("Fetching image price for ID:", id, "id_result:", id_result);
 
   let sql = "SELECT * FROM tb_product ";
   sql += "INNER JOIN tb_maintype ON tb_product.id_group = tb_maintype.id ";
@@ -289,9 +289,9 @@ app.post('/app_showprice', async (req, res) => {
       tb_unit.unitname,
       tb_price.price,
       tb_price.price_date,
-      tb_price.price_time,
       tb_price.id_result,
-      tb_result.name_result
+      tb_result.name_result,
+      tb_product.img_name
     FROM tb_product
     LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
     LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
@@ -319,20 +319,8 @@ app.post('/app_showprice', async (req, res) => {
     }, {});
     // แปลงให้อยู่ในรูปแบบที่ต้องการ (array ของ object)
     const products = Object.values(grouped).map(arr => {
-      const first = arr[0];
-      return {
-        id_product: first.id_product,
-        name_pro: first.name_pro,
-        name_maintype: first.name_maintype,
-        result: arr.filter(x => x.id_result).map(item => ({
-          price: item.price,
-          id_result: item.id_result,
-          name_result: item.name_result
-        })),
-        unitname: first.unitname,
-        price_date: first.price_date,
-        price_time: first.price_time
-      };
+      const { img_name, ...rest } = arr[0];
+      return { ...rest, img_name, prices: arr };
     });
     res.json(products);
   } catch (err) {
@@ -342,7 +330,7 @@ app.post('/app_showprice', async (req, res) => {
 });
 
 app.post('/app_saveprice', async (req, res) => {
-  console.log("Received request to save prices");
+  // console.log("Received request to save prices");
   const filteredPayload = req.body.filteredPayload;
   if (!Array.isArray(filteredPayload) || filteredPayload.length === 0) {
     return res.status(400).json({ success: false, message: "No data to save" });
@@ -416,10 +404,10 @@ app.post('/app_uploadimg', upload.single('image'), async (req, res) => {
   // เปลี่ยนชื่อไฟล์จริงในโฟลเดอร์
   fs.renameSync(oldPath, newPath);
 
-  // Insert new filename into tb_img
-  const sql = 'INSERT INTO tb_img (name_img) VALUES (?)';
+  // Insert new filename into tb_img พร้อม img_status = 'active'
+  const sql = 'INSERT INTO tb_img (name_img, img_status) VALUES (?, ?)';
   try {
-    await pool.query(sql, [newFilename]);
+    await pool.query(sql, [newFilename, 1]);
     res.json({ success: true, message: 'File uploaded and saved to DB', filename: newFilename, path: `/public/upload/${newFilename}` });
   } catch (err) {
     console.error('Error saving image filename:', err);
@@ -444,13 +432,13 @@ app.get('/app_listimg', async (req, res) => {
 app.use('/upload', express.static(path.join(__dirname, 'public', 'upload')));
 
 app.get('/app_listproducts', async (req, res) => {
-  console.log("Fetching list of products...today");
+  // console.log("Fetching list of products...today");
   let allProducts = [];
   // รองรับการส่ง date, id_result, id_maintype มาทาง query string
   let dateNow = req.query.date || moment().format('YYYY-MM-DD');
   let id_result = req.query.id_result;
   let id_maintype = req.query.id_maintype;
-  console.log("Fetching products for date:", dateNow, "id_result:", id_result, "id_maintype:", id_maintype);
+  // console.log("Fetching products for date:", dateNow, "id_result:", id_result, "id_maintype:", id_maintype);
   let sql = `
     SELECT 
       tb_product.id_product,
@@ -460,7 +448,8 @@ app.get('/app_listproducts', async (req, res) => {
       tb_price.price,
       tb_price.price_date,
       tb_price.id_result,
-      tb_result.name_result
+      tb_result.name_result,
+      tb_product.img_name
     FROM tb_product
     LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
     LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
@@ -483,7 +472,7 @@ app.get('/app_listproducts', async (req, res) => {
   try {
     const [result] = await pool.query(sql, params);
     allProducts = result;
-    console.log("Fetched products:", allProducts.length, "items");
+    // console.log("Fetched products:", allProducts.length, "items");
     res.json(groupProductsByid_product(allProducts));
   } catch (err) {
     console.error("Error executing query:", err);
@@ -493,40 +482,40 @@ app.get('/app_listproducts', async (req, res) => {
   function groupProductsByid_product(products) {
     // กลุ่มข้อมูลตาม id_product ก่อน
     const grouped = products.reduce((acc, product) => {
-      if (!acc[product.id_product]) {
-        acc[product.id_product] = [];
+      const id = product.id_product;
+      if (!acc[id]) {
+        acc[id] = {
+          id_product: product.id_product,
+          name_pro: product.name_pro,
+          name_maintype: product.name_maintype,
+          unitname: product.unitname,
+          img_name: product.img_name,
+          result: []
+        };
       }
-      acc[product.id_product].push(product);
+      // เพิ่มข้อมูลราคาตามตลาด (ถ้ามี)
+      if (product.name_result && product.price !== null && product.price !== undefined) {
+        acc[id].result.push({
+          name_result: product.name_result,
+          price: product.price,
+          price_date: product.price_date,
+          id_result: product.id_result
+        });
+      }
       return acc;
     }, {});
     // แปลงให้อยู่ในรูปแบบที่ต้องการ (array ของ object)
-    return Object.values(grouped).map(arr => {
-      // arr คือ array ของ product ที่ id_product เดียวกัน
-      const first = arr[0];
-      return {
-        id_product: first.id_product,
-        name_pro: first.name_pro,
-        price: first.price,
-        name_maintype: first.name_maintype,
-        result: arr.map(item => ({
-          price: item.price,
-          id_result: item.id_result,
-          name_result: item.name_result
-        })),
-        unitname: first.unitname,
-        price_date: first.price_date
-      };
-    });
+    return Object.values(grouped);
   }
 });
 
 app.get('/app_listproducts_yeserday', async (req, res) => {
-  console.log("Fetching list of products...yesterday");
+  // console.log("Fetching list of products...yesterday");
   let allProducts = [];
   // รองรับการส่ง date และ id_result มาทาง query string
   let dateYesterDay = req.query.date || req.query.yesterdayStr || moment().subtract(1, 'days').format('YYYY-MM-DD');
   let id_result = req.query.id_result;
-  console.log("Fetching products for date:", dateYesterDay, "id_result:", id_result);
+  // console.log("Fetching products for date:", dateYesterDay, "id_result:", id_result);
   let sql = `
     SELECT 
       tb_product.id_product,
@@ -536,7 +525,8 @@ app.get('/app_listproducts_yeserday', async (req, res) => {
       tb_price.price,
       tb_price.price_date,
       tb_price.id_result,
-      tb_result.name_result
+      tb_result.name_result,
+      tb_product.img_name
     FROM tb_product
     LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
     LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
@@ -553,7 +543,7 @@ app.get('/app_listproducts_yeserday', async (req, res) => {
   try {
     const [result] = await pool.query(sql, params);
     allProducts = result;
-    console.log("Fetched products:", allProducts.length, "items");
+    // console.log("Fetched products:", allProducts.length, "items");
     res.json(groupProductsByid_product(allProducts));
   } catch (err) {
     console.error("Error executing query:", err);
@@ -571,21 +561,9 @@ app.get('/app_listproducts_yeserday', async (req, res) => {
     }, {});
     // แปลงให้อยู่ในรูปแบบที่ต้องการ (array ของ object)
     return Object.values(grouped).map(arr => {
-      // arr คือ array ของ product ที่ id_product เดียวกัน
-      const first = arr[0];
-      return {
-        id_product: first.id_product,
-        name_pro: first.name_pro,
-        price: first.price,
-        name_maintype: first.name_maintype,
-        result: arr.map(item => ({
-          price: item.price,
-          id_result: item.id_result,
-          name_result: item.name_result
-        })),
-        unitname: first.unitname,
-        price_date: first.price_date
-      };
+      // เพิ่ม img_name ใน object หลัก (ใช้ตัวแรกของกลุ่ม)
+      const { img_name, ...rest } = arr[0];
+      return { ...rest, img_name, prices: arr };
     });
   }
 });
@@ -615,7 +593,8 @@ app.get('/app_vegetable-prices', async (req, res) => {
         tb_price.price,
         tb_price.price_date,
         tb_price.id_result,
-        tb_result.name_result
+        tb_result.name_result,
+        tb_product.img_name
       FROM tb_product
       LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
       LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
@@ -655,9 +634,7 @@ app.get('/app_latestprices', async (req, res) => {
   try {
     const [latestDateRow] = await pool.query('SELECT MAX(price_date) AS latest_date FROM tb_price');
     const latestDate = latestDateRow[0].latest_date;
-    if (!latestDate) {
-      return res.status(404).json({ success: false, message: 'No price data found' });
-    }
+    if (!latestDate) return res.json([]);
     const sql = `
       SELECT 
         tb_product.id_product,
@@ -667,10 +644,11 @@ app.get('/app_latestprices', async (req, res) => {
         tb_price.price,
         tb_price.price_date,
         tb_price.id_result,
-        tb_result.name_result
+        tb_result.name_result,
+        tb_product.img_name
       FROM tb_product
       LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
-      LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+      LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id
       LEFT JOIN tb_price ON tb_product.id_product = tb_price.id_prod
       LEFT JOIN tb_result ON tb_price.id_result = tb_result.id
       WHERE tb_price.price_date = ?
@@ -802,80 +780,66 @@ app.delete('/app_listwebsite/:id', async (req, res) => {
 });
 
 // --- Product Management CRUD ---
-app.get('/app_manage_product', async (req, res) => {
-  try {
-    const search = req.query.search ? req.query.search.trim() : '';
-    const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
-    const pageSize = 50;
-    const offset = (page - 1) * pageSize;
-    let where = '';
-    let params = [];
-    // เพิ่ม filter chart_status=1
-    if (req.query.chart_status === '1') {
-      where += (where ? ' AND' : ' WHERE') + ' chart_status=1';
-    }
-    if (req.query.prod_status === '1') {
-      where += (where ? ' AND' : ' WHERE') + ' prod_status=1';
-    }
-    if (search) {
-      where += (where ? ' AND' : ' WHERE') + ' name_pro LIKE ?';
-      params.push(`%${search}%`);
-    }
-    // ดึงจำนวนทั้งหมด
-    const [countRows] = await pool.query(
-      `SELECT COUNT(*) as total FROM tb_product${where}`,
-      params
-    );
-    const total = countRows[0].total;
-    const totalPages = Math.ceil(total / pageSize);
-    // ดึงข้อมูลหน้าปัจจุบัน
-    const [rows] = await pool.query(
-      `SELECT tb_product.*, tb_maintype.name_maintype, tb_unit.unitname
-       FROM tb_product
-       LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
-       LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
-       ${where}
-       ORDER BY id_product ASC LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
-    );
-    res.json({
-      data: rows,
-      page,
-      pageSize,
-      total,
-      totalPages
-    });
-  } catch (err) {
-    console.error('Error fetching products:', err);
-    res.status(500).json({ success: false, message: 'Database error' });
-  }
-});
+const productUpload = multer({ storage: storage });
 
-app.post('/app_manage_product', async (req, res) => {
+app.post('/app_manage_product', productUpload.single('image'), async (req, res) => {
   const { name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status } = req.body;
+  let img_name = '';
+  if (req.file) {
+    // สร้างชื่อไฟล์ใหม่โดยเติมวันที่และเวลา
+    const originalName = req.file.originalname;
+    const ext = path.extname(originalName);
+    const baseName = path.basename(originalName, ext);
+    const now = moment().format('YYYYMMDD_HHmmss');
+    const uniqueSuffix = now + '-' + Math.round(Math.random() * 1E9);
+    const newFilename = `${baseName}_${uniqueSuffix}${ext}`;
+    const oldPath = req.file.path;
+    const newPath = path.join(req.file.destination, newFilename);
+    fs.renameSync(oldPath, newPath);
+    img_name = newFilename;
+  }
   if (!name_pro || !id_group || !id_unit) return res.status(400).json({ error: 'Missing required fields' });
   try {
     await pool.query(
-      `INSERT INTO tb_product (name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name_pro, id_group, name_pro_en || '', name_pro_cn || '', id_unit, prod_status ?? 1, chart_status ?? 0]
+      `INSERT INTO tb_product (name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status, img_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name_pro, id_group, name_pro_en || '', name_pro_cn || '', id_unit, prod_status ?? 1, chart_status ?? 0, img_name]
     );
-    res.json({ success: true });
+    res.json({ success: true, img_name });
   } catch (err) {
     console.error('Error inserting product:', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
 
-app.put('/app_manage_product/:id', async (req, res) => {
+app.put('/app_manage_product/:id', productUpload.single('image'), async (req, res) => {
   const { id } = req.params;
   const { name_pro, id_group, name_pro_en, name_pro_cn, id_unit, prod_status, chart_status } = req.body;
+  let img_name = '';
+  if (req.file) {
+    // สร้างชื่อไฟล์ใหม่โดยเติมวันที่และเวลา
+    const originalName = req.file.originalname;
+    const ext = path.extname(originalName);
+    const baseName = path.basename(originalName, ext);
+    const now = moment().format('YYYYMMDD_HHmmss');
+    const uniqueSuffix = now + '-' + Math.round(Math.random() * 1E9);
+    const newFilename = `${baseName}_${uniqueSuffix}${ext}`;
+    const oldPath = req.file.path;
+    const newPath = path.join(req.file.destination, newFilename);
+    fs.renameSync(oldPath, newPath);
+    img_name = newFilename;
+  }
   if (!name_pro || !id_group || !id_unit) return res.status(400).json({ error: 'Missing required fields' });
   try {
-    await pool.query(
-      `UPDATE tb_product SET name_pro = ?, id_group = ?, name_pro_en = ?, name_pro_cn = ?, id_unit = ?, prod_status = ?, chart_status = ? WHERE id_product = ?`,
-      [name_pro, id_group, name_pro_en || '', name_pro_cn || '', id_unit, prod_status ?? 1, chart_status ?? 0, id]
-    );
-    res.json({ success: true });
+    let sql = `UPDATE tb_product SET name_pro = ?, id_group = ?, name_pro_en = ?, name_pro_cn = ?, id_unit = ?, prod_status = ?, chart_status = ?`;
+    let params = [name_pro, id_group, name_pro_en || '', name_pro_cn || '', id_unit, prod_status ?? 1, chart_status ?? 0];
+    if (img_name) {
+      sql += ', img_name = ?';
+      params.push(img_name);
+    }
+    sql += ' WHERE id_product = ?';
+    params.push(id);
+    await pool.query(sql, params);
+    res.json({ success: true, img_name });
   } catch (err) {
     console.error('Error updating product:', err);
     res.status(500).json({ error: 'Database error' });
@@ -912,6 +876,177 @@ app.get('/app_searchname', async (req, res) => {
 });
 
 
+
+
+app.get('/app_manage_product', async (req, res) => {
+  try {
+    const search = req.query.search ? req.query.search.trim() : '';
+    const page = parseInt(req.query.page) > 0 ? parseInt(req.query.page) : 1;
+    const pageSize = 50;
+    const offset = (page - 1) * pageSize;
+    let where = '';
+    let params = [];
+    // เพิ่ม filter chart_status=1
+    if (req.query.chart_status === '1') {
+      where += (where ? ' AND ' : ' WHERE ') + 'chart_status = 1';
+    }
+    if (req.query.prod_status === '1') {
+      where += (where ? ' AND ' : ' WHERE ') + 'prod_status = 1';
+    }
+    if (search) {
+      where += (where ? ' AND ' : ' WHERE ') + '(name_pro LIKE ? OR name_pro_en LIKE ? OR name_pro_cn LIKE ?)';
+
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    // ดึงจำนวนทั้งหมด
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) as total FROM tb_product${where}`,
+      params
+    );
+    const total = countRows[0].total;
+    const totalPages = Math.ceil(total / pageSize);
+    // ดึงข้อมูลหน้าปัจจุบัน
+    const [rows] = await pool.query(
+      `SELECT tb_product.*, tb_maintype.name_maintype, tb_unit.unitname
+       FROM tb_product
+       LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
+       LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+       ${where}
+       ORDER BY id_product ASC LIMIT ? OFFSET ?`,
+      [...params, pageSize, offset]
+    );
+    res.json({
+      data: rows,
+      page,
+      pageSize,
+      total,
+      totalPages
+    });
+  } catch (err) {
+    console.error('Error fetching products:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// --- สำหรับ Datecompareprices.js: ข้อมูลวันที่ 1 ---
+app.get('/app_listproducts_startdate', async (req, res) => {
+  let date = req.query.date;
+  let id_result = req.query.id_result;
+  if (!date || !id_result) return res.status(400).json({ success: false, message: 'Missing date or id_result' });
+  try {
+    const sql = `
+      SELECT 
+        tb_product.id_product,
+        tb_product.name_pro,
+        tb_maintype.name_maintype,
+        tb_unit.unitname,
+        tb_price.price,
+        tb_price.price_date,
+        tb_price.id_result,
+        tb_result.name_result,
+        tb_product.img_name
+      FROM tb_product
+      LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
+      LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+      LEFT JOIN tb_price ON tb_product.id_product = tb_price.id_prod
+      LEFT JOIN tb_result ON tb_price.id_result = tb_result.id
+      WHERE tb_price.price_date = ?
+        AND tb_price.id_result = ?
+        AND tb_product.prod_status = 1
+      ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result
+    `;
+    const [result] = await pool.query(sql, [date, id_result]);
+    // group by id_product
+    const grouped = result.reduce((acc, product) => {
+      const id = product.id_product;
+      if (!acc[id]) {
+        acc[id] = {
+          id_product: product.id_product,
+          name_product: product.name_pro,
+          name_maintype: product.name_maintype,
+          unit: product.unitname,
+          image: product.img_name,
+          detail: '',
+          result: []
+        };
+      }
+      if (product.name_result && product.price !== null && product.price !== undefined) {
+        acc[id].result.push({
+          name_result: product.name_result,
+          price: product.price,
+          price_date: product.price_date,
+          id_result: product.id_result
+        });
+      }
+      return acc;
+    }, {});
+    res.json(Object.values(grouped));
+  } catch (err) {
+    console.error('Error fetching startdate products:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// --- สำหรับ Datecompareprices.js: ข้อมูลวันที่ 2 ---
+app.get('/app_listproducts_enddate', async (req, res) => {
+  let date = req.query.date;
+  // console.log("Fetching enddate products for date:", date);
+  
+  let id_result = req.query.id_result;
+  if (!date || !id_result) return res.status(400).json({ success: false, message: 'Missing date or id_result' });
+  try {
+    const sql = `
+      SELECT 
+        tb_product.id_product,
+        tb_product.name_pro,
+        tb_maintype.name_maintype,
+        tb_unit.unitname,
+        tb_price.price,
+        tb_price.price_date,
+        tb_price.id_result,
+        tb_result.name_result,
+        tb_product.img_name
+      FROM tb_product
+      LEFT JOIN tb_maintype ON tb_product.id_group = tb_maintype.id
+      LEFT JOIN tb_unit ON tb_product.id_unit = tb_unit.id_unit
+      LEFT JOIN tb_price ON tb_product.id_product = tb_price.id_prod
+      LEFT JOIN tb_result ON tb_price.id_result = tb_result.id
+      WHERE tb_price.price_date = ?
+        AND tb_price.id_result = ?
+        AND tb_product.prod_status = 1
+      ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result
+    `;
+    const [result] = await pool.query(sql, [date, id_result]);
+    // group by id_product (เหมือน startdate)
+    const grouped = result.reduce((acc, product) => {
+      const id = product.id_product;
+      if (!acc[id]) {
+        acc[id] = {
+          id_product: product.id_product,
+          name_product: product.name_pro,
+          name_maintype: product.name_maintype,
+          unit: product.unitname,
+          image: product.img_name,
+          detail: '',
+          result: []
+        };
+      }
+      if (product.name_result && product.price !== null && product.price !== undefined) {
+        acc[id].result.push({
+          name_result: product.name_result,
+          price: product.price,
+          price_date: product.price_date,
+          id_result: product.id_result
+        });
+      }
+      return acc;
+    }, {});
+    res.json(Object.values(grouped));
+  } catch (err) {
+    console.error('Error fetching enddate products:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
 
 const port = process.env.PORT || 4222;
 app.listen(port, () => {
