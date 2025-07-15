@@ -300,7 +300,7 @@ app.post('/app_showprice', async (req, res) => {
     WHERE tb_product.prod_status = 1
   `;
   let params = [date];
-  if (id_maintype) {
+  if (id_maintype && id_maintype !== '0' && id_maintype !== 0) {
     sql += ' AND tb_maintype.id = ?';
     params.push(id_maintype);
   }
@@ -416,7 +416,7 @@ app.post('/app_uploadimg', upload.single('image'), async (req, res) => {
 });
 
 app.get('/app_listimg', async (req, res) => {
-  const sql = 'SELECT * FROM tb_img ORDER BY id DESC';
+  const sql = 'SELECT * FROM tb_img ORDER BY id_order ASC';
   try {
     const [results] = await pool.query(sql);
     res.json(results);
@@ -430,6 +430,73 @@ app.get('/app_listimg', async (req, res) => {
 
 // ให้ Express ให้บริการไฟล์ใน /public/upload ผ่าน /upload
 app.use('/upload', express.static(path.join(__dirname, 'public', 'upload')));
+
+// สลับลำดับรูปภาพ (id_order) ระหว่าง 2 id
+app.put('/app_swapimgorder', async (req, res) => {
+  const { id1, id2 } = req.body;
+  // console.log('swapimgorder req.body:', req.body);
+  if (!id1 || !id2) {
+    console.log('Missing id1 or id2');
+    return res.status(400).json({ success: false, message: 'Missing id1 or id2' });
+  }
+  try {
+    // ดึง id_order ของแต่ละภาพ
+    const [rows] = await pool.query('SELECT id, id_order FROM tb_img WHERE id IN (?, ?)', [id1, id2]);
+    console.log('swapimgorder rows:', rows);
+    if (rows.length !== 2) {
+      console.log('Images not found');
+      return res.status(404).json({ success: false, message: 'Images not found' });
+    }
+    const img1 = rows.find(r => r.id == id1);
+    const img2 = rows.find(r => r.id == id2);
+    console.log('img1:', img1, 'img2:', img2);
+    // สลับค่า id_order
+    await pool.query('UPDATE tb_img SET id_order = ? WHERE id = ?', [img2.id_order, img1.id]);
+    await pool.query('UPDATE tb_img SET id_order = ? WHERE id = ?', [img1.id_order, img2.id]);
+    console.log('Swapped id_order:', img1.id, img2.id);
+    res.json({ success: true, message: 'Swapped image order', id1, id2 });
+  } catch (err) {
+    console.error('Error swapping image order:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// อัปเดตลำดับรูปภาพ (id_order)
+app.put('/app_updateimgorder', async (req, res) => {
+  console.log("Updating image order with data:", req.body);
+  const { id, id_order } = req.body;
+  if (!id || typeof id_order === 'undefined') {
+    return res.status(400).json({ success: false, message: 'Missing id or id_order' });
+  }
+  try {
+    await pool.query('UPDATE tb_img SET id_order = ? WHERE id = ?', [id_order, id]);
+    res.json({ success: true, message: 'Image order updated', id, id_order });
+  } catch (err) {
+    console.error('Error updating image order:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
+
+// ลบรูปภาพจากฐานข้อมูลและไฟล์จริง
+app.delete('/app_deleteimg/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const [rows] = await pool.query('SELECT name_img FROM tb_img WHERE id = ?', [id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Image not found' });
+    const filename = rows[0].name_img;
+    // ลบไฟล์จริง
+    const filePath = path.join(__dirname, 'public', 'upload', filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    // ลบ record ในฐานข้อมูล
+    await pool.query('DELETE FROM tb_img WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Image deleted', filename });
+  } catch (err) {
+    console.error('Error deleting image:', err);
+    res.status(500).json({ success: false, message: 'Database error' });
+  }
+});
 
 app.get('/app_listproducts', async (req, res) => {
   // console.log("Fetching list of products...today");
@@ -515,7 +582,8 @@ app.get('/app_listproducts_yeserday', async (req, res) => {
   // รองรับการส่ง date และ id_result มาทาง query string
   let dateYesterDay = req.query.date || req.query.yesterdayStr || moment().subtract(1, 'days').format('YYYY-MM-DD');
   let id_result = req.query.id_result;
-  // console.log("Fetching products for date:", dateYesterDay, "id_result:", id_result);
+  let id_maintype = req.query.id_maintype;
+  // console.log("Fetching products for date:", dateYesterDay, "id_result:", id_result, "id_maintype:", id_maintype);
   let sql = `
     SELECT 
       tb_product.id_product,
@@ -535,6 +603,10 @@ app.get('/app_listproducts_yeserday', async (req, res) => {
     WHERE tb_price.price_date = ?
   `;
   let params = [dateYesterDay];
+  if (id_maintype && id_maintype !== '0' && id_maintype !== 0) {
+    sql += ' AND tb_maintype.id = ?';
+    params.push(id_maintype);
+  }
   if (id_result && id_result !== '-1') {
     sql += ' AND tb_price.id_result = ?';
     params.push(id_result);
@@ -932,9 +1004,10 @@ app.get('/app_manage_product', async (req, res) => {
 app.get('/app_listproducts_startdate', async (req, res) => {
   let date = req.query.date;
   let id_result = req.query.id_result;
+  let id_maintype = req.query.id_maintype;
   if (!date || !id_result) return res.status(400).json({ success: false, message: 'Missing date or id_result' });
   try {
-    const sql = `
+    let sql = `
       SELECT 
         tb_product.id_product,
         tb_product.name_pro,
@@ -953,9 +1026,14 @@ app.get('/app_listproducts_startdate', async (req, res) => {
       WHERE tb_price.price_date = ?
         AND tb_price.id_result = ?
         AND tb_product.prod_status = 1
-      ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result
     `;
-    const [result] = await pool.query(sql, [date, id_result]);
+    let params = [date, id_result];
+    if (id_maintype && id_maintype !== '0' && id_maintype !== 0) {
+      sql += ' AND tb_maintype.id = ?';
+      params.push(id_maintype);
+    }
+    sql += ' ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result';
+    const [result] = await pool.query(sql, params);
     // group by id_product
     const grouped = result.reduce((acc, product) => {
       const id = product.id_product;
@@ -990,12 +1068,11 @@ app.get('/app_listproducts_startdate', async (req, res) => {
 // --- สำหรับ Datecompareprices.js: ข้อมูลวันที่ 2 ---
 app.get('/app_listproducts_enddate', async (req, res) => {
   let date = req.query.date;
-  // console.log("Fetching enddate products for date:", date);
-  
   let id_result = req.query.id_result;
+  let id_maintype = req.query.id_maintype;
   if (!date || !id_result) return res.status(400).json({ success: false, message: 'Missing date or id_result' });
   try {
-    const sql = `
+    let sql = `
       SELECT 
         tb_product.id_product,
         tb_product.name_pro,
@@ -1014,9 +1091,14 @@ app.get('/app_listproducts_enddate', async (req, res) => {
       WHERE tb_price.price_date = ?
         AND tb_price.id_result = ?
         AND tb_product.prod_status = 1
-      ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result
     `;
-    const [result] = await pool.query(sql, [date, id_result]);
+    let params = [date, id_result];
+    if (id_maintype && id_maintype !== '0' && id_maintype !== 0) {
+      sql += ' AND tb_maintype.id = ?';
+      params.push(id_maintype);
+    }
+    sql += ' ORDER BY tb_maintype.name_maintype, tb_product.id_product, tb_price.id_result';
+    const [result] = await pool.query(sql, params);
     // group by id_product (เหมือน startdate)
     const grouped = result.reduce((acc, product) => {
       const id = product.id_product;
